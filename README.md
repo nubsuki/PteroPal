@@ -1,4 +1,3 @@
-Here’s an updated version of the README with images and a note on common errors:
 
 ---
 
@@ -127,11 +126,11 @@ http://localhost:3000/auth?code=4/0...
 
 ### Example of URL Before Fix:
 
-![Incorrect URL Example](Assets/url.png)
+![Incorrect URL Example](./Assets/url.png)
 
 ### Example After Fix:
 
-![Correct URL Example](Assets/url_fix.png)
+![Correct URL Example](./Assets/url_fix.png)
 
 ## Daily Backup Schedule
 
@@ -145,5 +144,3 @@ The bot automatically checks the server status every 2 minutes and handles backu
 This project is provided for personal use and is distributed "as-is." Please make sure to back up your files before using.
 
 ---
-
-Let me know if you need any more modifications!

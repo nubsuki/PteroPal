@@ -30,23 +30,8 @@ PteroPal is a Discord bot that simplifies the management and backup of game serv
 
 ## Installation
 
-1. Clone the bot repository:
-
-    ```bash
-    mkdir -p /discordBot
-    cd /discordBot
-    git clone https://github.com/nubsuki/PteroPal.git
-    ```
-
-2. Navigate to the bot directory:
-
-    ```bash
-    cd PteroPal
-    ```
-
-3. Add your Google Drive API `credentials.json` and `token.json` to the folder.
-
-4. Open the `docker-compose.yml` file to configure the environment:
+1. Create a folder named `pteropal` and add your JSON files there.
+2. Create and edit the `docker-compose.yml` file to configure the environment:
 
     ```bash
     nano docker-compose.yml
@@ -58,25 +43,22 @@ PteroPal is a Discord bot that simplifies the management and backup of game serv
     version: '3'
     services:
       pteropal:
-        build:
-          context: .
-        container_name: pteropal-bot
+        image: nubsuki/pteropal
+        volumes:
+          - /pteropal/token.json:/app/token.json  # Mount the token file
+          - /pteropal/credentials.json:/app/credentials.json  # Mount Google Drive credentials
         environment:
-          - DISCORD_TOKEN=${DISCORD_TOKEN}
-          - PTERODACTYL_API_URL=${PTERODACTYL_API_URL}
-          - PTERODACTYL_API_KEY=${PTERODACTYL_API_KEY}
-          - FOLDER_NAMES=${satisfactory,minecraft}
-          - FOLDER_PATHS=${E:/Desktop/satisfactory/Saved,E:/Desktop/minecraft/world}
+          - DISCORD_TOKEN=# Discord bot token
+          - PTERODACTYL_API_URL=# Pterodactyl API URL
+          - PTERODACTYL_API_KEY=# Pterodactyl API key
+          - FOLDER_NAMES=# Comma-separated folder names for backup
+          - FOLDER_PATHS=# Comma-separated folder paths for backup
         ports:
           - "3000:3000"
         restart: unless-stopped
-        volumes:
-          - /discordBot/PteroPal:/app/data # Edit path to the bot clone location
     ```
 
-5. Add your credentials to the `.env` file or directly into `docker-compose.yml`.
-
-6. Start the bot:
+3. Start the bot:
 
     ```bash
     docker-compose up -d
@@ -118,7 +100,7 @@ But when opened in your browser, it may redirect to:
 localhost:3000/?code=4/0...
 ```
 
-If this happens, just manually adjust the URL by adding `/auth` like this:
+If this happens, manually adjust the URL by adding `/auth` like this:
 
 ```
 http://localhost:3000/auth?code=4/0...

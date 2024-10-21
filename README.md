@@ -53,6 +53,7 @@ PteroPal is a Discord bot that simplifies the management and backup of game serv
           - PTERODACTYL_API_KEY=# Pterodactyl API key
           - FOLDER_NAMES=# Comma-separated folder names for backup
           - FOLDER_PATHS=# Comma-separated folder paths for backup
+          - TZ=Asia/Colombo
         ports:
           - "3000:3000"
         restart: unless-stopped

@@ -41,7 +41,7 @@ PteroPal is a Discord bot that simplifies the management and backup of game serv
 2. Navigate to the bot directory:
 
     ```bash
-    cd Shaper
+    cd PteroPal
     ```
 
 3. Add your Google Drive API `credentials.json` and `token.json` to the folder.

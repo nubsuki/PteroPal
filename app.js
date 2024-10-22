@@ -7,6 +7,7 @@ const path = require("path");
 const express = require("express");
 const app = express();
 const PORT = 3000;
+const archiver = require("archiver");
 
 const SCOPES = ["https://www.googleapis.com/auth/drive.file"];
 const TOKEN_PATH = "token.json";
@@ -203,7 +204,7 @@ client.login(process.env.DISCORD_TOKEN);
 function isSLTimeSS() {
   const now = new Date();
   const options = {
-    timeZone: process.env.TIME_ZONE,
+    timeZone: process.env.TZ,
     hour: "2-digit",
     minute: "2-digit",
   };
@@ -215,7 +216,7 @@ function isSLTimeSS() {
 function isSLTimeBackup() {
   const now = new Date();
   const options = {
-    timeZone: process.env.TIME_ZONE,
+    timeZone: process.env.TZ,
     hour: "2-digit",
     minute: "2-digit",
   };
@@ -382,21 +383,77 @@ app.get("/", (req, res) => {
 console.log("Folder Names:", folderNames);
 console.log("Folder Paths:", folderPaths);
 
-// Updates the backupToDrive function to handle multiple folders
-function backupToDrive(auth) {
+// Function to create a ZIP archive of the specified folder
+async function createZipArchive(folderPath, zipFilePath) {
+  return new Promise((resolve, reject) => {
+    const output = fs.createWriteStream(zipFilePath);
+    const archive = archiver("zip", {
+      zlib: { level: 9 }, // Sets the compression level
+    });
+
+    output.on("close", () => {
+      console.log(
+        `Created ZIP archive: ${zipFilePath} (${archive.pointer()} total bytes)`
+      );
+      resolve();
+    });
+
+    archive.on("error", (err) => {
+      reject(err);
+    });
+
+    archive.pipe(output);
+    archive.directory(folderPath, false); // Add the folder to the archive
+    archive.finalize();
+  });
+}
+
+// Uploads the ZIP file to Google Drive
+async function uploadZipFile(auth, folderId, zipFilePath) {
+  const drive = google.drive({ version: "v3", auth });
+  const fileMetadata = {
+    name: path.basename(zipFilePath),
+    parents: [folderId],
+  };
+  const media = {
+    mimeType: "application/zip",
+    body: fs.createReadStream(zipFilePath),
+  };
+
+  try {
+    const file = await drive.files.create({
+      resource: fileMetadata,
+      media: media,
+      fields: "id",
+    });
+    console.log("Uploaded ZIP File Id:", file.data.id);
+  } catch (err) {
+    console.error("Error uploading ZIP file:", err);
+  }
+}
+
+// Updates the backupToDrive function to handle compression
+async function backupToDrive(auth) {
   const drive = google.drive({ version: "v3", auth });
 
-  folderNames.forEach((mainFolderName, index) => {
+  for (const [index, mainFolderName] of folderNames.entries()) {
     const folderPath = folderPaths[index];
     const dateTime = new Date().toISOString().replace(/[:.]/g, "-");
-    const subFolderName = `save data ${dateTime}`;
+    const zipFilePath = path.join(
+      folderPath,
+      `${mainFolderName}_backup_${dateTime}.zip`
+    );
 
+    // Create a ZIP archive of the folder
+    await createZipArchive(folderPath, zipFilePath);
+
+    // Check if the main folder exists in Google Drive
     drive.files.list(
       {
         q: `name='${mainFolderName}' and mimeType='application/vnd.google-apps.folder'`,
         fields: "files(id, name)",
       },
-      (err, res) => {
+      async (err, res) => {
         if (err) {
           console.error("Error searching for main folder:", err);
           return;
@@ -413,104 +470,18 @@ function backupToDrive(auth) {
             mimeType: "application/vnd.google-apps.folder",
           };
 
-          drive.files.create(
-            {
-              resource: mainFolderMetadata,
-              fields: "id",
-            },
-            (err, mainFolder) => {
-              if (err) {
-                console.error("Error creating main folder:", err);
-                return;
-              }
-              mainFolderId = mainFolder.data.id;
-              createSubfolder(
-                drive,
-                mainFolderId,
-                subFolderName,
-                auth,
-                folderPath
-              );
-            }
-          );
-          return;
+          const mainFolder = await drive.files.create({
+            resource: mainFolderMetadata,
+            fields: "id",
+          });
+          mainFolderId = mainFolder.data.id;
         }
 
-        createSubfolder(drive, mainFolderId, subFolderName, auth, folderPath);
+        // Upload the ZIP file to Google Drive
+        await uploadZipFile(auth, mainFolderId, zipFilePath);
       }
     );
-  });
-}
-
-// Creates a subfolder in Google Drive
-function createSubfolder(drive, mainFolderId, subFolderName, auth, folderPath) {
-  const subFolderMetadata = {
-    name: subFolderName,
-    mimeType: "application/vnd.google-apps.folder",
-    parents: [mainFolderId],
-  };
-
-  drive.files.create(
-    {
-      resource: subFolderMetadata,
-      fields: "id",
-    },
-    (err, subFolder) => {
-      if (err) {
-        console.error("Error creating subfolder:", err);
-      } else {
-        uploadFiles(auth, subFolder.data.id, folderPath);
-      }
-    }
-  );
-}
-
-// Uploads files to Google Drive with controlled concurrency
-async function uploadFiles(auth, folderId, folderPath) {
-  const drive = google.drive({ version: "v3", auth });
-  const files = await fs.promises.readdir(folderPath); // Use promises for better async handling
-  const maxConcurrentUploads = 5; // Set the maximum number of concurrent uploads
-  const uploadPromises = [];
-
-  for (const file of files) {
-    const filePath = path.join(folderPath, file);
-    const stats = await fs.promises.stat(filePath);
-
-    if (stats.isFile()) {
-      const fileMetadata = {
-        name: file,
-        parents: [folderId],
-      };
-      const media = {
-        mimeType: "application/octet-stream",
-        body: fs.createReadStream(filePath),
-      };
-
-      const uploadPromise = drive.files
-        .create({
-          resource: fileMetadata,
-          media: media,
-          fields: "id",
-        })
-        .then((file) => {
-          console.log("Uploaded File Id:", file.data.id);
-        })
-        .catch((err) => {
-          console.error("Error uploading file:", err);
-        });
-
-      uploadPromises.push(uploadPromise);
-
-      // Control the number of concurrent uploads
-      if (uploadPromises.length >= maxConcurrentUploads) {
-        await Promise.all(uploadPromises); // Wait for all current uploads to finish
-        uploadPromises.length = 0; // Clear the array for the next batch
-      }
-    }
   }
-
-  // Wait for any remaining uploads to finish
-  await Promise.all(uploadPromises);
 }
 
 // Starts the Express server

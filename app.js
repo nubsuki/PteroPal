@@ -534,6 +534,7 @@ async function checkDirectoryAccessible(path) {
     await fs.access(path);
     return true;
   } catch (error) {
+    console.error(`Error accessing ${path}:`, error.message);
     return false;
   }
 }

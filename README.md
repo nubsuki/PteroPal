@@ -37,7 +37,7 @@ PteroPal is a Discord bot that simplifies the management and backup of game serv
     nano docker-compose.yml
     ```
 
-    Example `docker-compose.yml`:
+    `docker-compose.yml`:
 
     ```yaml
     version: '3'
@@ -47,15 +47,42 @@ PteroPal is a Discord bot that simplifies the management and backup of game serv
         volumes:
           - /pteropal/token.json:/app/token.json  # Mount the token file
           - /pteropal/credentials.json:/app/credentials.json  # Mount Google Drive credentials
+          - /path/to/save/directory:/app/save-directory  # Mount the Pterodactyl Save directory
         environment:
           - DISCORD_TOKEN=# Discord bot token
           - PTERODACTYL_API_URL=# Pterodactyl API URL
           - PTERODACTYL_API_KEY=# Pterodactyl API key
-          - FOLDER_NAMES=# Comma-separated folder names for backup
-          - FOLDER_PATHS=# Comma-separated folder paths for backup
+          - FOLDER_NAMES=folder1,folder2  # Comma-separated folder names for backup
+          - FOLDER_PATHS=/path/to/folder1,/path/to/folder2  # Corresponding folder paths
           - TZ=Asia/Colombo
+          - PUID=1000 # Set permissions
+          - PGID=1000 # Set permissions
         ports:
           - "3000:3000"
+        restart: unless-stopped
+    ```
+
+    Example `docker-compose.yml`:
+
+    ```yaml
+    version: '3.8'
+    services:
+      pteropal:
+        image: nubsuki/pteropal
+        volumes:
+          - /discordBot/pteropal/token.json:/app/token.json  # Mount the token file
+          - /discordBot/pteropal/credentials.json:/app/credentials.json  # Mount Google Drive credentials
+          - /var/lib/pterodactyl/volumes/<volume-id>/.config/Epic/FactoryGame/Saved:/var/lib/pterodactyl/volumes/<volume-id>/.config/Epic/FactoryGame/Saved  # Mount the save directory
+          - /var/lib/pterodactyl/volumes/<volume-id>/world:/var/lib/pterodactyl/volumes/<volume-id>/world  # Mount the save directory
+        environment:
+          - DISCORD_TOKEN=your_discord_token  # Discord bot token
+          - PTERODACTYL_API_URL=your_pterodactyl_api_url  # Pterodactyl API URL
+          - PTERODACTYL_API_KEY=your_pterodactyl_api_key  # Pterodactyl API key
+          - FOLDER_NAMES=Satisfactory,Minecraft  # Comma-separated folder names for backup
+          - FOLDER_PATHS=/var/lib/pterodactyl/volumes/<volume-id>/.config/Epic/FactoryGame/Saved,/var/lib/pterodactyl/volumes/<volume-id>/world
+          - TZ=Asia/Colombo
+          - PUID=998  # Set permissions
+          - PGID=997  # Set permissions
         restart: unless-stopped
     ```
 

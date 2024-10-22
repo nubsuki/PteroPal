@@ -199,6 +199,55 @@ client.on("ready", () => {
 
 client.login(process.env.DISCORD_TOKEN);
 
+// Checks if it's the specified shutdown time in the configured time zone
+function isSLTimeSS() {
+  const now = new Date();
+  const options = {
+    timeZone: process.env.TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+  };
+  const timeInConfiguredZone = now.toLocaleTimeString("en-US", options);
+  return timeInConfiguredZone === process.env.SHUTDOWN_TIME;
+}
+
+// Checks if it's the specified backup time in the configured time zone
+function isSLTimeBackup() {
+  const now = new Date();
+  const options = {
+    timeZone: process.env.TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+  };
+  const timeInConfiguredZone = now.toLocaleTimeString("en-US", options);
+  return timeInConfiguredZone === process.env.BACKUP_TIME;
+}
+
+// Function to check time and perform actions
+async function checkTimeAndPerformActions() {
+  const servers = await getServers();
+
+  // Check if it's the specified shutdown time
+  if (isSLTimeSS()) {
+    for (const server of servers) {
+      const shutdownResult = await shutdownServer(server.id, server.name);
+      console.log(shutdownResult);
+    }
+  } else {
+    console.log(`Skipping shutdown check.`);
+  }
+
+  // Check if it's the specified backup time
+  if (isSLTimeBackup()) {
+    fs.readFile("credentials.json", (err, content) => {
+      if (err) return console.log("Error loading client secret file:", err);
+      authorize(JSON.parse(content), performBackup);
+    });
+  } else {
+    console.log("Not the time for backup.");
+  }
+}
+
 // Periodically checks server status and performs actions based on time
 setInterval(async () => {
   console.log("-----------------------------------");
@@ -219,31 +268,12 @@ setInterval(async () => {
     }
   }
 
-  const servers = await getServers();
-
-  // Check if it's 4 AM in Sri Lanka and shut down all servers
-  if (isSLTimeSS()) {
-    for (const server of servers) {
-      const shutdownResult = await shutdownServer(server.id, server.name);
-      console.log(shutdownResult);
-    }
-  } else {
-    console.log(`Skipping check.`);
-  }
-
-  // Check if it's 4:20 AM in Sri Lanka and backup all servers
-  if (isSLTimeBackup()) {
-    fs.readFile("credentials.json", (err, content) => {
-      if (err) return console.log("Error loading client secret file:", err);
-      authorize(JSON.parse(content), performBackup);
-    });
-  } else {
-    console.log("Not the time for backup.");
-  }
-
   console.log("Automatic check completed");
   console.log("-----------------------------------");
-}, 60000); // 1 minutes in milliseconds
+
+  // Trigger time-based actions
+  await checkTimeAndPerformActions();
+}, 60000); // 1 minute in milliseconds
 
 // Fetches the current status of a server
 async function getServerStatus(serverId) {
@@ -284,31 +314,6 @@ async function shutdownServer(serverId, serverName) {
     console.error(`Error shutting down server ${serverName}:`, error.message);
   }
 }
-
-// Checks if it's 4 AM in Sri Lanka
-function isSLTimeSS() {
-  const now = new Date();
-  const options = {
-    timeZone: "Asia/Colombo",
-    hour: "2-digit",
-    minute: "2-digit",
-  };
-  const timeInSriLanka = now.toLocaleTimeString("en-US", options);
-  return timeInSriLanka === "04:00 AM";
-}
-
-// Checks if it's 4:20 AM in Sri Lanka
-function isSLTimeBackup() {
-  const now = new Date();
-  const options = {
-    timeZone: "Asia/Colombo",
-    hour: "2-digit",
-    minute: "2-digit",
-  };
-  const timeInSriLanka = now.toLocaleTimeString("en-US", options);
-  return timeInSriLanka === "04:20 AM";
-}
-//BackUP function
 
 // Parse folder names and paths into arrays
 const folderNames = process.env.FOLDER_NAMES.split(",");
@@ -454,73 +459,52 @@ function createSubfolder(drive, mainFolderId, subFolderName, auth, folderPath) {
   );
 }
 
-// Uploads files to Google Drive
-function uploadFiles(auth, folderId, folderPath) {
+// Uploads files to Google Drive with controlled concurrency
+async function uploadFiles(auth, folderId, folderPath) {
   const drive = google.drive({ version: "v3", auth });
+  const files = await fs.promises.readdir(folderPath); // Use promises for better async handling
+  const maxConcurrentUploads = 5; // Set the maximum number of concurrent uploads
+  const uploadPromises = [];
 
-  fs.readdir(folderPath, (err, files) => {
-    if (err) {
-      console.error("Error reading folder:", err);
-      return;
+  for (const file of files) {
+    const filePath = path.join(folderPath, file);
+    const stats = await fs.promises.stat(filePath);
+
+    if (stats.isFile()) {
+      const fileMetadata = {
+        name: file,
+        parents: [folderId],
+      };
+      const media = {
+        mimeType: "application/octet-stream",
+        body: fs.createReadStream(filePath),
+      };
+
+      const uploadPromise = drive.files
+        .create({
+          resource: fileMetadata,
+          media: media,
+          fields: "id",
+        })
+        .then((file) => {
+          console.log("Uploaded File Id:", file.data.id);
+        })
+        .catch((err) => {
+          console.error("Error uploading file:", err);
+        });
+
+      uploadPromises.push(uploadPromise);
+
+      // Control the number of concurrent uploads
+      if (uploadPromises.length >= maxConcurrentUploads) {
+        await Promise.all(uploadPromises); // Wait for all current uploads to finish
+        uploadPromises.length = 0; // Clear the array for the next batch
+      }
     }
+  }
 
-    files.forEach((file) => {
-      const filePath = path.join(folderPath, file);
-
-      fs.stat(filePath, (err, stats) => {
-        if (err) {
-          console.error("Error getting file stats:", err);
-          return;
-        }
-
-        if (stats.isFile()) {
-          const fileMetadata = {
-            name: file,
-            parents: [folderId],
-          };
-          const media = {
-            mimeType: "application/octet-stream",
-            body: fs.createReadStream(filePath),
-          };
-
-          drive.files.create(
-            {
-              resource: fileMetadata,
-              media: media,
-              fields: "id",
-            },
-            (err, file) => {
-              if (err) {
-                console.error("Error uploading file:", err);
-              } else {
-                console.log("Uploaded File Id:", file.data.id);
-              }
-            }
-          );
-        } else if (stats.isDirectory()) {
-          const folderMetadata = {
-            name: file,
-            mimeType: "application/vnd.google-apps.folder",
-            parents: [folderId],
-          };
-
-          drive.files.create(
-            {
-              resource: folderMetadata,
-              fields: "id",
-            },
-            (err, folder) => {
-              if (err) {
-                console.error("Error creating folder in Drive:", err);
-              } else {
-                uploadFiles(auth, folder.data.id, filePath);
-              }
-            }
-          );
-        }
-      });
-    });
-  });
+  // Wait for any remaining uploads to finish
+  await Promise.all(uploadPromises);
 }
 
 // Starts the Express server

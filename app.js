@@ -248,6 +248,12 @@ async function checkTimeAndPerformActions() {
   }
 }
 
+//To test the Backup
+fs.readFile("credentials.json", (err, content) => {
+  if (err) return console.log("Error loading client secret file:", err);
+  authorize(JSON.parse(content), performBackup);
+});
+
 // Periodically checks server status and performs actions based on time
 setInterval(async () => {
   console.log("-----------------------------------");

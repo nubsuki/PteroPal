@@ -204,6 +204,21 @@ setInterval(async () => {
   console.log("-----------------------------------");
   console.log("Performing automatic server check");
   console.log(new Date().toLocaleString());
+
+  // Get folder paths from environment variable
+  const folderPaths = process.env.FOLDER_PATHS.split(",");
+
+  // Check directory accessibility
+  for (const path of folderPaths) {
+    const trimmedPath = path.trim(); // Trim any whitespace
+    const isAccessible = await checkDirectoryAccessible(trimmedPath);
+    if (isAccessible) {
+      console.log(`Files are accessible in: ${trimmedPath}`);
+    } else {
+      console.log(`Files are NOT accessible in: ${trimmedPath}`);
+    }
+  }
+
   const servers = await getServers();
 
   // Check if it's 4 AM in Sri Lanka and shut down all servers
@@ -512,3 +527,13 @@ function uploadFiles(auth, folderId, folderPath) {
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
+
+// Function to check if a directory is accessible
+async function checkDirectoryAccessible(path) {
+  try {
+    await fs.access(path);
+    return true;
+  } catch (error) {
+    return false;
+  }
+}

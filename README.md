@@ -165,6 +165,6 @@ The bot automatically checks the server status every 1 minutes and handles backu
 
 ## License
 
-This project is provided for personal use and is distributed "as-is." Please make sure to back up your files before using.
+This project is provided for personal use and is distributed "as-is.".
 
 ---

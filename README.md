@@ -102,7 +102,7 @@ PteroPal is a Discord bot that simplifies the management and backup of game serv
 
 ## If you don't have a `token.json` file yet, remove this line from the `volumes` section:
 
-    ```yaml
+    ```bash
     - /pteropal/token.json:/app/token.json
     ```
 

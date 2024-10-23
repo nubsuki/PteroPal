@@ -15,8 +15,8 @@ PteroPal is a Discord bot that simplifies the management and backup of game serv
   - Fetch server statuses and control server power actions using the Pterodactyl API.
 
 - **Daily Backup to Google Drive:**
-  - Every day at 4:00 AM Sri Lanka time, all active servers are automatically shut down.
-  - At 4:20 AM, a backup process uploads specific folders from the local machine to Google Drive.
+  - Every day all active servers are automatically shut down.
+  - a backup process uploads specific folders from the local machine to Google Drive.
   - OAuth2 authentication is used for Google Drive, with automatic directory creation for backups.
 
 - **Resource Management:**
@@ -55,6 +55,8 @@ PteroPal is a Discord bot that simplifies the management and backup of game serv
           - FOLDER_NAMES=folder1,folder2  # Comma-separated folder names for backup
           - FOLDER_PATHS=/path/to/folder1,/path/to/folder2  # Corresponding folder paths
           - TZ=Asia/Colombo
+          - SHUTDOWN_TIME= # Time for shutdown
+          - BACKUP_TIME= # Time for backup
           - PUID=1000 # Set permissions
           - PGID=1000 # Set permissions
         ports:
@@ -72,8 +74,7 @@ PteroPal is a Discord bot that simplifies the management and backup of game serv
         volumes:
           - /discordBot/pteropal/token.json:/app/token.json  # Mount the token file
           - /discordBot/pteropal/credentials.json:/app/credentials.json  # Mount Google Drive credentials
-          - /var/lib/pterodactyl/volumes/<volume-id>/.config/Epic/FactoryGame/Saved:/var/lib/pterodactyl/volumes/<volume-id>/.config/Epic/FactoryGame/Saved  # Mount the save directory
-          - /var/lib/pterodactyl/volumes/<volume-id>/world:/var/lib/pterodactyl/volumes/<volume-id>/world  # Mount the save directory
+          - /var/lib/pterodactyl/volumes:/var/lib/pterodactyl/volumes # Mount the save directory
         environment:
           - DISCORD_TOKEN=your_discord_token  # Discord bot token
           - PTERODACTYL_API_URL=your_pterodactyl_api_url  # Pterodactyl API URL
@@ -81,6 +82,8 @@ PteroPal is a Discord bot that simplifies the management and backup of game serv
           - FOLDER_NAMES=Satisfactory,Minecraft  # Comma-separated folder names for backup
           - FOLDER_PATHS=/var/lib/pterodactyl/volumes/<volume-id>/.config/Epic/FactoryGame/Saved,/var/lib/pterodactyl/volumes/<volume-id>/world
           - TZ=Asia/Colombo
+          - SHUTDOWN_TIME=04:55  # Time for shutdown
+          - BACKUP_TIME=04:58    # Time for backup
           - PUID=998  # Set permissions
           - PGID=997  # Set permissions
         restart: unless-stopped
@@ -144,10 +147,10 @@ http://localhost:3000/auth?code=4/0...
 
 ## Daily Backup Schedule
 
-- **4:00 AM** – All active servers are shut down to free resources.
-- **4:20 AM** – Backup process starts, uploading specific folders to Google Drive.
+- – All active servers are shut down to free resources.
+- – Backup process starts, uploading specific folders to Google Drive.
 
-The bot automatically checks the server status every 2 minutes and handles backup and shutdown at 4:00 AM Sri Lanka time.
+The bot automatically checks the server status every 1 minutes and handles backup and shutdown at 4:00 AM Sri Lanka time.
 
 ## License
 

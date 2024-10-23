@@ -59,8 +59,8 @@ PteroPal is a Discord bot that simplifies the management and backup of game serv
           - FOLDER_NAMES=folder1,folder2  # Comma-separated folder names for backup
           - FOLDER_PATHS=/path/to/folder1,/path/to/folder2  # Corresponding folder paths
           - TZ=Asia/Colombo
-          - SHUTDOWN_TIME= # Time for shutdown
-          - BACKUP_TIME= # Time for backup
+          - SHUTDOWN_TIME= # Time for shutdown AM/PM
+          - BACKUP_TIME= # Time for backup AM/PM
           - PUID=1000 # Set permissions
           - PGID=1000 # Set permissions
         ports:
@@ -87,8 +87,8 @@ PteroPal is a Discord bot that simplifies the management and backup of game serv
           - FOLDER_NAMES=Satisfactory,Minecraft  # Comma-separated folder names for backup
           - FOLDER_PATHS=/var/lib/pterodactyl/volumes/<volume-id>/.config/Epic/FactoryGame/Saved,/var/lib/pterodactyl/volumes/<volume-id>/world
           - TZ=Asia/Colombo
-          - SHUTDOWN_TIME=04:55  # Time for shutdown
-          - BACKUP_TIME=04:58    # Time for backup
+          - SHUTDOWN_TIME=04:55 AM  # Time for shutdown
+          - BACKUP_TIME=04:58 AM   # Time for backup
           - PUID=998  # Set permissions
           - PGID=997  # Set permissions
         ports:

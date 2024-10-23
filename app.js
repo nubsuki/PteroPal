@@ -400,6 +400,7 @@ async function createZipArchive(folderPath, zipFilePath) {
     });
 
     archive.on("error", (err) => {
+      console.error("Error creating ZIP archive:", err);
       reject(err);
     });
 
@@ -445,8 +446,13 @@ async function backupToDrive(auth) {
       `${mainFolderName}_backup_${dateTime}.zip`
     );
 
+    console.log(
+      `Creating ZIP archive for folder: ${mainFolderName} at path: ${folderPath}`
+    );
+
     // Create a ZIP archive of the folder
     await createZipArchive(folderPath, zipFilePath);
+    console.log(`Created ZIP archive: ${zipFilePath}`);
 
     // Check if the main folder exists in Google Drive
     drive.files.list(

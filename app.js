@@ -207,6 +207,7 @@ function isSLTimeSS() {
     timeZone: process.env.TZ,
     hour: "2-digit",
     minute: "2-digit",
+    hour12: true,
   };
   const timeInConfiguredZone = now.toLocaleTimeString("en-US", options);
   return timeInConfiguredZone === process.env.SHUTDOWN_TIME;
@@ -219,6 +220,7 @@ function isSLTimeBackup() {
     timeZone: process.env.TZ,
     hour: "2-digit",
     minute: "2-digit",
+    hour12: true,
   };
   const timeInConfiguredZone = now.toLocaleTimeString("en-US", options);
   return timeInConfiguredZone === process.env.BACKUP_TIME;

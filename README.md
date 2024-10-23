@@ -100,7 +100,7 @@ PteroPal is a Discord bot that simplifies the management and backup of game serv
     docker-compose up -d
     ```
 
-## If you don't have a `token.json` file yet, remove this line from the `volumes` section:
+- **If you don't have a `token.json` file yet, remove this line from the `volumes` section:**
 
     - /pteropal/token.json:/app/token.json
 

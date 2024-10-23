@@ -91,6 +91,8 @@ PteroPal is a Discord bot that simplifies the management and backup of game serv
           - BACKUP_TIME=04:58    # Time for backup
           - PUID=998  # Set permissions
           - PGID=997  # Set permissions
+        ports:
+          - "3000:3000"
         restart: unless-stopped
     ```
 

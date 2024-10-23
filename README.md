@@ -14,9 +14,12 @@ PteroPal is a Discord bot that simplifies the management and backup of game serv
     - `.stop <number>` – Stop a specific server.
   - Fetch server statuses and control server power actions using the Pterodactyl API.
 
+
 - **Daily Backup to Google Drive:**
-  - Every day all active servers are automatically shut down.
-  - a backup process uploads specific folders from the local machine to Google Drive.
+
+  The first backup starts as soon as the bot is launched. If any errors occur, you can address them right away. Ensure all servers are manually shut down before starting the bot to allow the backup process to run smoothly.
+  - Every day, all active servers are automatically shut down at a specified time.
+  - The backup process zips your files temporarily, uploads the zip files from specific folders on the local machine to Google Drive, and then removes the temporary files once the upload is complete.
   - OAuth2 authentication is used for Google Drive, with automatic directory creation for backups.
 
 - **Resource Management:**
@@ -44,10 +47,11 @@ PteroPal is a Discord bot that simplifies the management and backup of game serv
     services:
       pteropal:
         image: nubsuki/pteropal
+        container_name: petropal
         volumes:
           - /pteropal/token.json:/app/token.json  # Mount the token file
           - /pteropal/credentials.json:/app/credentials.json  # Mount Google Drive credentials
-          - /path/to/save/directory:/app/save-directory  # Mount the Pterodactyl Save directory
+          - /pterodactyl/volumes:/pterodactyl/volumes  # Mount the Pterodactyl Save directory
         environment:
           - DISCORD_TOKEN=# Discord bot token
           - PTERODACTYL_API_URL=# Pterodactyl API URL
@@ -71,6 +75,7 @@ PteroPal is a Discord bot that simplifies the management and backup of game serv
     services:
       pteropal:
         image: nubsuki/pteropal
+        container_name: petropal
         volumes:
           - /discordBot/pteropal/token.json:/app/token.json  # Mount the token file
           - /discordBot/pteropal/credentials.json:/app/credentials.json  # Mount Google Drive credentials
@@ -93,6 +98,12 @@ PteroPal is a Discord bot that simplifies the management and backup of game serv
 
     ```bash
     docker-compose up -d
+    ```
+
+## If you don't have a `token.json` file yet, remove this line from the `volumes` section:
+
+    ```yaml
+    - /pteropal/token.json:/app/token.json
     ```
 
 ## Google Drive API Setup

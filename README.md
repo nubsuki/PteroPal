@@ -102,9 +102,7 @@ PteroPal is a Discord bot that simplifies the management and backup of game serv
 
 ## If you don't have a `token.json` file yet, remove this line from the `volumes` section:
 
-    ```bash
     - /pteropal/token.json:/app/token.json
-    ```
 
 ## Google Drive API Setup
 

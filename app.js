@@ -328,7 +328,7 @@ const folderNames = process.env.FOLDER_NAMES.split(",");
 const folderPaths = process.env.FOLDER_PATHS.split(",");
 
 // Define a temporary directory for ZIP files
-const TEMP_ZIP_DIR = path.join(__dirname, "temp_zips"); // Adjust the path as needed
+const TEMP_ZIP_DIR = path.join(__dirname, "temp_zips");
 
 // Ensure the temporary directory exists
 fs.ensureDirSync(TEMP_ZIP_DIR);
@@ -395,7 +395,7 @@ async function createZipArchive(folderPath, zipFilePath) {
   return new Promise((resolve, reject) => {
     const output = fs.createWriteStream(zipFilePath);
     const archive = archiver("zip", {
-      zlib: { level: 9 }, // Sets the compression level
+      zlib: { level: 9 }, // compression level
     });
 
     output.on("close", () => {

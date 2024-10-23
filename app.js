@@ -240,6 +240,7 @@ async function checkTimeAndPerformActions() {
 
   // Check if it's the specified backup time
   if (isSLTimeBackup()) {
+    console.log("Starting backup process...");
     fs.readFile("credentials.json", (err, content) => {
       if (err) return console.log("Error loading client secret file:", err);
       authorize(JSON.parse(content), performBackup);
@@ -327,9 +328,9 @@ const folderNames = process.env.FOLDER_NAMES.split(",");
 const folderPaths = process.env.FOLDER_PATHS.split(",");
 
 // Performs backup logic
-function performBackup(auth) {
-  console.log("Performing backup...");
-  backupToDrive(auth);
+async function performBackup(auth) {
+  console.log("Performing backup for all folders...");
+  await backupToDrive(auth);
 }
 
 // Authorizes the application with Google Drive

@@ -161,7 +161,7 @@ http://localhost:3000/auth?code=4/0...
 - – All active servers are shut down to free resources.
 - – Backup process starts, uploading specific folders to Google Drive.
 
-The bot automatically checks the server status every 1 minutes and handles backup and shutdown at 4:00 AM Sri Lanka time.
+The bot automatically checks the server status every 1 minutes and handles backup and shutdown them to backup.
 
 ## License
 

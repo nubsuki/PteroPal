@@ -122,39 +122,12 @@ PteroPal is a Discord bot that simplifies the management and backup of game serv
 4. Create OAuth credentials:
    - Go to **APIs & Services > Credentials**.
    - Click **Create Credentials** and select **OAuth 2.0 Client ID**.
-   - Choose **Web application**, add `http://localhost:3000` to the **Authorized redirect URIs**.
+   - Choose **Web application**, add `http://localhost:3000` Or http://ip:port to the **Authorized redirect URIs**.
    - Select the scope for **Google Drive API** with `.../auth/drive.file`.
    - Download the credentials JSON, rename it to `credentials.json`, and place it in your bot folder.
 
 5. Run the bot, which will prompt you with a link. Authorize your account via this link, and the bot will generate and save a `token.json` for future access.
 
-## Common Error Fix (OAuth2 Callback Issue)
-
-The authorization URL should look like this:
-
-```
-http://localhost:3000/auth?code=4/0AV...
-```
-
-But when opened in your browser, it may redirect to:
-
-```
-localhost:3000/?code=4/0...
-```
-
-If this happens, manually adjust the URL by adding `/auth` like this:
-
-```
-http://localhost:3000/auth?code=4/0...
-```
-
-### Example of URL Before Fix:
-
-![Incorrect URL Example](./Assets/url.png)
-
-### Example After Fix:
-
-![Correct URL Example](./Assets/url_fix.png)
 
 ## Daily Backup Schedule
 

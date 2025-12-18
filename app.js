@@ -194,7 +194,7 @@ client.on("messageCreate", async (message) => {
 });
 
 // Logs in the Discord client
-client.on("ready", () => {
+client.on("clientReady", () => {
   console.log(`Logged in as ${client.user.tag}!`);
 });
 
@@ -385,6 +385,9 @@ function getAccessToken(oAuth2Client, callback) {
 
 // Defines a route for the root URL
 app.get("/", (req, res) => {
+  if (req.query.code) {
+    return res.redirect(`/auth?code=${encodeURIComponent(req.query.code)}`);
+  }
   res.send("Welcome to the Backup Script!");
 });
 

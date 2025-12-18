@@ -67,35 +67,6 @@ PteroPal is a Discord bot that simplifies the management and backup of game serv
           - "3000:3000"
         restart: unless-stopped
     ```
-
-    Example `docker-compose.yml`:
-
-    ```yaml
-    version: '3.8'
-    services:
-      pteropal:
-        image: nubsuki/pteropal
-        container_name: petropal
-        volumes:
-          - /discordBot/pteropal/token.json:/app/token.json  # Mount the token file
-          - /discordBot/pteropal/credentials.json:/app/credentials.json  # Mount Google Drive credentials
-          - /var/lib/pterodactyl/volumes:/var/lib/pterodactyl/volumes # Mount the save directory
-        environment:
-          - DISCORD_TOKEN=your_discord_token  # Discord bot token
-          - PTERODACTYL_API_URL=your_pterodactyl_api_url  # Pterodactyl API URL
-          - PTERODACTYL_API_KEY=your_pterodactyl_api_key  # Pterodactyl API key
-          - FOLDER_NAMES=Satisfactory,Minecraft  # Comma-separated folder names for backup
-          - FOLDER_PATHS=/var/lib/pterodactyl/volumes/<volume-id>/.config/Epic/FactoryGame/Saved,/var/lib/pterodactyl/volumes/<volume-id>/world
-          - TZ=Asia/Colombo
-          - SHUTDOWN_TIME=04:55 AM  # Time for shutdown
-          - BACKUP_TIME=04:58 AM   # Time for backup
-          - PUID=998  # Set permissions
-          - PGID=997  # Set permissions
-        ports:
-          - "3000:3000"
-        restart: unless-stopped
-    ```
-
 3. Start the bot:
 
     ```bash

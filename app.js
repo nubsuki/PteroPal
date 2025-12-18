@@ -375,7 +375,7 @@ function getAccessToken(oAuth2Client, callback) {
           console.log("Token stored to", TOKEN_PATH);
         });
         callback(oAuth2Client);
-        res.send(`Authorization code received: <strong>${code}</strong>`);
+        res.send("Authorization successful. You can close this window.");
       });
     } else {
       res.send("No authorization code provided.");

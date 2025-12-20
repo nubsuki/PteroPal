@@ -22,6 +22,7 @@ const client = new Client({
 
 const PTERODACTYL_API_URL = process.env.PTERODACTYL_API_URL;
 const PTERODACTYL_API_KEY = process.env.PTERODACTYL_API_KEY;
+const DISCORD_PREFIX = process.env.DISCORD_PREFIX || ".";
 
 let authToken = null;
 
@@ -134,9 +135,9 @@ async function stopServer(serverId, serverName) {
 
 // Handles incoming messages and commands from Discord
 client.on("messageCreate", async (message) => {
-  if (!message.content.startsWith(".")) return;
+  if (!message.content.startsWith(DISCORD_PREFIX)) return;
 
-  const args = message.content.slice(1).trim().split(" ");
+  const args = message.content.slice(DISCORD_PREFIX.length).trim().split(" ");
   const command = args[0].toLowerCase();
 
   if (command === "servers") {
@@ -159,7 +160,7 @@ client.on("messageCreate", async (message) => {
         .join("\n");
 
       await message.channel.send(
-        `Available servers:\n${serverList}\n\nUse .start <number> to start a server.\nUse .stop <number> to stop a server.`
+        `Available servers:\n${serverList}\n\nUse ${DISCORD_PREFIX}start <number> to start a server.\nUse ${DISCORD_PREFIX}stop <number> to stop a server.`
       );
     } catch (error) {
       message.channel.send("An error occurred while processing the command.");

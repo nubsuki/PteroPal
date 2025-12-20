@@ -6,6 +6,7 @@ services:
           - "3000:3000"
         environment:
           - DISCORD_TOKEN=# Discord bot token
+          - DISCORD_PREFIX=. # Discord bot prefix (default: .)
           - PTERODACTYL_API_URL=# Pterodactyl API URL
           - PTERODACTYL_API_KEY=# Pterodactyl API key
           - FOLDER_NAMES=folder1,folder2  # Comma-separated folder names for backup

@@ -209,7 +209,7 @@ function isTimeBackup() {
     timeZone: process.env.TZ,
     hour: "2-digit",
     minute: "2-digit",
-    hour12: true,
+    hour12: false,
   };
   const timeInConfiguredZone = now.toLocaleTimeString("en-US", options);
   return timeInConfiguredZone === process.env.BACKUP_TIME;

@@ -55,17 +55,18 @@ async function getServers() {
 }
 
 // Starts a specified server
-async function startServer(serverId, serverName) {
+async function startServer(serverId, serverName, channel) {
   console.log(`Starting server: ${serverName} (ID: ${serverId})`);
   try {
     const initialStatus = await getServerStatus(serverId);
     console.log(`Initial status of ${serverName}: ${initialStatus}`);
 
     if (initialStatus === "running") {
-      return `Server "${serverName}" is already running!`;
+      channel.send(`Server "${serverName}" is already running!`);
+      return;
     }
 
-    const response = await axios.post(
+    await axios.post(
       `${PTERODACTYL_API_URL}/api/client/servers/${serverId}/power`,
       { signal: "start" },
       {
@@ -76,36 +77,52 @@ async function startServer(serverId, serverName) {
         },
       }
     );
-    console.log(`Start server response for ${serverName}:`, response.data);
+    console.log(`Start command sent for ${serverName}`);
+    channel.send(
+      `Server "${serverName}" start command sent. Waiting for it to come online...`
+    );
 
-    // Wait for the server to start
-    await new Promise((resolve) => setTimeout(resolve, 5000));
+    // Poll for status
+    const maxRetries = 60; // 5 minutes (60 * 5s)
+    let retries = 0;
 
-    const newStatus = await getServerStatus(serverId);
-    console.log(`New status of ${serverName}: ${newStatus}`);
+    const pollInterval = setInterval(async () => {
+      retries++;
+      const currentStatus = await getServerStatus(serverId);
+      console.log(
+        `Checking status for ${serverName}: ${currentStatus} (Attempt ${retries}/${maxRetries})`
+      );
 
-    if (newStatus === initialStatus) {
-      return `Server "${serverName}" start command sent, but status remains ${newStatus}. It may take longer to fully start.`;
-    } else {
-      return `Server "${serverName}" status changed from ${initialStatus} to ${newStatus}`;
-    }
+      if (currentStatus === "running") {
+        channel.send(`Server "${serverName}" is now ONLINE!`);
+        clearInterval(pollInterval);
+      } else if (retries >= maxRetries) {
+        channel.send(
+          `Server "${serverName}" took too long to start. Please check the panel.`
+        );
+        clearInterval(pollInterval);
+      }
+    }, 5000);
   } catch (error) {
     console.error(`Error starting server ${serverName}:`, error.message);
-    return `Failed to start server "${serverName}". Check console for details.`;
+    channel.send(
+      `Failed to start server "${serverName}". Check console for details.`
+    );
   }
 }
 
 // Stops a specified server
-async function stopServer(serverId, serverName) {
+async function stopServer(serverId, serverName, channel) {
   try {
     const initialStatus = await getServerStatus(serverId);
     console.log(`Initial status of ${serverName}: ${initialStatus}`);
 
     if (initialStatus === "offline") {
-      return `Server "${serverName}" is already stopped!`;
+      channel.send(`Server "${serverName}" is already stopped!`);
+      return;
     }
 
-    const response = await axios.post(
+    await axios.post(
       `${PTERODACTYL_API_URL}/api/client/servers/${serverId}/power`,
       { signal: "stop" },
       {
@@ -117,19 +134,36 @@ async function stopServer(serverId, serverName) {
       }
     );
 
-    // Wait for the server to stop
-    await new Promise((resolve) => setTimeout(resolve, 5000));
+    channel.send(
+      `Server "${serverName}" stop command sent. Waiting for it to go offline...`
+    );
 
-    const newStatus = await getServerStatus(serverId);
+    // Poll for status
+    const maxRetries = 60; // 5 minutes (60 * 5s)
+    let retries = 0;
 
-    if (newStatus === initialStatus) {
-      return `Server "${serverName}" stop command sent, but status remains ${newStatus}. It may take longer to fully stop.`;
-    } else {
-      return `Server "${serverName}" status changed from ${initialStatus} to ${newStatus}`;
-    }
+    const pollInterval = setInterval(async () => {
+      retries++;
+      const currentStatus = await getServerStatus(serverId);
+      console.log(
+        `Checking status for ${serverName}: ${currentStatus} (Attempt ${retries}/${maxRetries})`
+      );
+
+      if (currentStatus === "offline") {
+        channel.send(`Server "${serverName}" is now OFFLINE!`);
+        clearInterval(pollInterval);
+      } else if (retries >= maxRetries) {
+        channel.send(
+          `Server "${serverName}" took too long to stop. Please check the panel.`
+        );
+        clearInterval(pollInterval);
+      }
+    }, 5000);
   } catch (error) {
     console.error(`Error stopping server ${serverName}:`, error.message);
-    return `Failed to stop server "${serverName}". Check console for details.`;
+    channel.send(
+      `Failed to stop server "${serverName}". Check console for details.`
+    );
   }
 }
 
@@ -176,8 +210,7 @@ client.on("messageCreate", async (message) => {
     }
 
     const server = servers[serverIndex];
-    const result = await startServer(server.id, server.name);
-    message.channel.send(result);
+    await startServer(server.id, server.name, message.channel);
   }
 
   if (command === "stop" && args[1]) {
@@ -189,8 +222,7 @@ client.on("messageCreate", async (message) => {
     }
 
     const server = servers[serverIndex];
-    const result = await stopServer(server.id, server.name);
-    message.channel.send(result);
+    await stopServer(server.id, server.name, message.channel);
   }
 });
 

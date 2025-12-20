@@ -200,21 +200,10 @@ client.on("clientReady", () => {
 
 client.login(process.env.DISCORD_TOKEN);
 
-// Checks if it's the specified shutdown time in the configured time zone
-function isSLTimeSS() {
-  const now = new Date();
-  const options = {
-    timeZone: process.env.TZ,
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  };
-  const timeInConfiguredZone = now.toLocaleTimeString("en-US", options);
-  return timeInConfiguredZone === process.env.SHUTDOWN_TIME;
-}
+
 
 // Checks if it's the specified backup time in the configured time zone
-function isSLTimeBackup() {
+function isTimeBackup() {
   const now = new Date();
   const options = {
     timeZone: process.env.TZ,
@@ -228,35 +217,58 @@ function isSLTimeBackup() {
 
 // Function to check time and perform actions
 async function checkTimeAndPerformActions() {
-  const servers = await getServers();
-
-  // Check if it's the specified shutdown time
-  if (isSLTimeSS()) {
-    for (const server of servers) {
-      const shutdownResult = await shutdownServer(server.id, server.name);
-      console.log(shutdownResult);
-    }
-  } else {
-    console.log(`Skipping shutdown check.`);
-  }
-
   // Check if it's the specified backup time
-  if (isSLTimeBackup()) {
-    console.log("Starting backup process...");
-    fs.readFile("credentials.json", (err, content) => {
-      if (err) return console.log("Error loading client secret file:", err);
-      authorize(JSON.parse(content), performBackup);
-    });
+  if (isTimeBackup()) {
+    console.log("Time for scheduled backup.");
+    await initiateBackupSequence();
   } else {
     console.log("Not the time for backup.");
   }
 }
 
-//To test the Backup
-fs.readFile("credentials.json", (err, content) => {
-  if (err) return console.log("Error loading client secret file:", err);
-  authorize(JSON.parse(content), performBackup);
-});
+// Orchestrates the shutdown, wait, and backup process
+async function initiateBackupSequence() {
+  console.log("Starting backup process...");
+
+  // Check if shutdown is enabled (defaults to true)
+  const shouldShutdown = process.env.SHUTDOWN_BEFORE_BACKUP !== "false";
+
+  if (shouldShutdown) {
+    // Shutdown all servers
+    const servers = await getServers();
+    for (const server of servers) {
+      await shutdownServer(server.id, server.name);
+    }
+
+    // Wait until all servers are offline
+    console.log("Waiting for servers to go offline...");
+    let allOffline = false;
+    while (!allOffline) {
+      allOffline = true;
+      for (const server of servers) {
+        const status = await getServerStatus(server.id);
+        if (status !== "offline") {
+          allOffline = false;
+          console.log(`Server ${server.name} is still ${status}. Waiting...`);
+        }
+      }
+      if (!allOffline) {
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+      }
+    }
+    console.log("All servers are offline. Proceeding with backup.");
+  } else {
+    console.log("Skipping server shutdown as per configuration.");
+  }
+
+  fs.readFile("credentials.json", (err, content) => {
+    if (err) return console.log("Error loading client secret file:", err);
+    authorize(JSON.parse(content), performBackup);
+  });
+}
+
+// Initial backup sequence on startup
+initiateBackupSequence();
 
 // Periodically checks server status and performs actions based on time
 setInterval(async () => {
@@ -362,6 +374,7 @@ function getAccessToken(oAuth2Client, callback) {
   const authUrl = oAuth2Client.generateAuthUrl({
     access_type: "offline",
     scope: SCOPES,
+    prompt: "consent",
   });
   console.log("Authorize this app by visiting this url:", authUrl);
   app.get("/auth", (req, res) => {

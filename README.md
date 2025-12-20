@@ -59,8 +59,8 @@ PteroPal is a Discord bot that simplifies the management and backup of game serv
           - FOLDER_NAMES=folder1,folder2  # Comma-separated folder names for backup
           - FOLDER_PATHS=/path/to/folder1,/path/to/folder2  # Corresponding folder paths
           - TZ=Asia/Colombo
-          - SHUTDOWN_TIME= # Time for shutdown AM/PM
           - BACKUP_TIME= # Time for backup AM/PM
+          - SHUTDOWN_BEFORE_BACKUP=true # Set to false to disable server shutdown before backup
           - PUID=1000 # Set permissions
           - PGID=1000 # Set permissions
         ports:

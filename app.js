@@ -341,11 +341,12 @@ async function shutdownServer(serverId, serverName) {
 const folderNames = process.env.FOLDER_NAMES.split(",");
 const folderPaths = process.env.FOLDER_PATHS.split(",");
 
-// Define a temporary directory for ZIP files
-const TEMP_ZIP_DIR = path.join(__dirname, "temp_zips");
+// Use LOCAL_BACKUP_DIR from env or default to "local_backups" in the current directory
+const BACKUP_DIR =
+  process.env.LOCAL_BACKUP_DIR || path.join(__dirname, "local_backups");
 
-// Ensure the temporary directory exists
-fs.ensureDirSync(TEMP_ZIP_DIR);
+// Ensure the backup directory exists
+fs.ensureDirSync(BACKUP_DIR);
 
 // Performs backup logic
 async function performBackup(auth) {
@@ -466,7 +467,7 @@ async function backupToDrive(auth) {
     const folderPath = folderPaths[index];
     const dateTime = new Date().toISOString().replace(/[:.]/g, "-");
     const zipFilePath = path.join(
-      TEMP_ZIP_DIR, // Save ZIP files in the temporary directory
+      BACKUP_DIR, // Save ZIP files in the backup directory
       `${mainFolderName}_backup_${dateTime}.zip`
     );
 
@@ -511,14 +512,7 @@ async function backupToDrive(auth) {
         // Upload the ZIP file to Google Drive
         await uploadZipFile(auth, mainFolderId, zipFilePath);
 
-        // Delete the ZIP file after successful upload
-        fs.remove(zipFilePath, (err) => {
-          if (err) {
-            console.error("Error deleting ZIP file:", err);
-          } else {
-            console.log(`Deleted ZIP file: ${zipFilePath}`);
-          }
-        });
+        console.log(`Backup completed for ${mainFolderName}. File saved at: ${zipFilePath}`);
       }
     );
   }

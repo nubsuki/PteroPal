@@ -33,49 +33,7 @@ PteroPal is a Discord bot that simplifies the management and backup of game serv
 
 ## Installation
 
-1. Create a folder named `pteropal` and add your JSON files there.
-2. Create and edit the `docker-compose.yml` file to configure the environment:
-
-    ```bash
-    nano docker-compose.yml
-    ```
-
-    `docker-compose.yml`:
-
-    ```yaml
-    version: '3'
-    services:
-      pteropal:
-        image: nubsuki/pteropal
-        container_name: petropal
-        volumes:
-          - /pteropal/token.json:/app/token.json  # Mount the token file
-          - /pteropal/credentials.json:/app/credentials.json  # Mount Google Drive credentials
-          - /pterodactyl/volumes:/pterodactyl/volumes  # Mount the Pterodactyl Save directory
-        environment:
-          - DISCORD_TOKEN=# Discord bot token
-          - PTERODACTYL_API_URL=# Pterodactyl API URL
-          - PTERODACTYL_API_KEY=# Pterodactyl API key
-          - FOLDER_NAMES=folder1,folder2  # Comma-separated folder names for backup
-          - FOLDER_PATHS=/path/to/folder1,/path/to/folder2  # Corresponding folder paths
-          - TZ=Asia/Colombo
-          - BACKUP_TIME= # Time for backup AM/PM
-          - SHUTDOWN_BEFORE_BACKUP=true # Set to false to disable server shutdown before backup
-          - PUID=1000 # Set permissions
-          - PGID=1000 # Set permissions
-        ports:
-          - "3000:3000"
-        restart: unless-stopped
-    ```
-3. Start the bot:
-
-    ```bash
-    docker-compose up -d
-    ```
-
-- **If you don't have a `token.json` file yet, remove this line from the `volumes` section:**
-
-    - /pteropal/token.json:/app/token.json
+ - Get docker-compose.yml from [here](https://github.com/nubsuki/PteroPal/blob/main/docker-compose.yml)
 
 ## Google Drive API Setup
 

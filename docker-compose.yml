@@ -1,6 +1,6 @@
 services:
       pteropal:
-        image: nubsuki/pteropal
+        image: ghcr.io/nubsuki/pteropal:latest
         container_name: pteropal
         ports:
           - "3000:3000"

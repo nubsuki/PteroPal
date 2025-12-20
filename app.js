@@ -32,8 +32,11 @@ const folderPaths = process.env.FOLDER_PATHS.split(",");
 const BACKUP_DIR =
   process.env.LOCAL_BACKUP_DIR || path.join(__dirname, "local_backups");
 
+const MANUAL_BACKUP_DIR = path.join(__dirname, "manual_backups");
+
 // Ensure the backup directory exists
 fs.ensureDirSync(BACKUP_DIR);
+fs.ensureDirSync(MANUAL_BACKUP_DIR);
 
 let authToken = null;
 
@@ -205,7 +208,7 @@ client.on("messageCreate", async (message) => {
         .join("\n");
 
       await message.channel.send(
-        `Available servers:\n${serverList}\n\nUse ${DISCORD_PREFIX}start <number> to start a server.\nUse ${DISCORD_PREFIX}stop <number> to stop a server.`
+        `Available servers:\n${serverList}\n\nUse ${DISCORD_PREFIX}start <number> to start a server.\nUse ${DISCORD_PREFIX}stop <number> to stop a server.\nUse ${DISCORD_PREFIX}backup to trigger a manual backup.`
       );
     } catch (error) {
       message.channel.send("An error occurred while processing the command.");
@@ -234,6 +237,10 @@ client.on("messageCreate", async (message) => {
 
     const server = servers[serverIndex];
     await stopServer(server.id, server.name, message.channel);
+  }
+
+  if (command === "backup") {
+    await performManualBackup(message.channel);
   }
 });
 
@@ -643,11 +650,6 @@ async function cleanupLocalBackups(backupDir, folderName, maxBackups) {
   }
 }
 
-// Starts the Express server
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-});
-
 // Function to check if a directory is accessible
 async function checkDirectoryAccessible(path) {
   try {
@@ -658,3 +660,112 @@ async function checkDirectoryAccessible(path) {
     return false;
   }
 }
+
+// Performs manual backup logic (Local and optionally Drive)
+async function performManualBackup(channel) {
+  channel.send("Manual backup triggered");
+
+  const enableDriveBackup = process.env.ENABLE_DRIVE_BACKUP !== "false";
+
+  if (enableDriveBackup) {
+    fs.readFile("credentials.json", (err, content) => {
+      if (err) {
+        console.log("Error loading client secret file:", err);
+        channel.send("Error loading Drive credentials. Check console.");
+        return;
+      }
+      authorize(JSON.parse(content), (auth) =>
+        executeManualBackup(auth, channel)
+      );
+    });
+  } else {
+    await executeManualBackup(null, channel);
+  }
+}
+
+async function executeManualBackup(auth, channel) {
+  console.log("Starting manual backup execution...");
+  let drive = null;
+  if (auth) {
+    drive = google.drive({ version: "v3", auth });
+  }
+
+  for (const [index, mainFolderName] of folderNames.entries()) {
+    const folderPath = folderPaths[index];
+    const dateTime = new Date().toISOString().replace(/[:.]/g, "-");
+    const zipFilePath = path.join(
+      MANUAL_BACKUP_DIR,
+      `${mainFolderName}_manual_backup_${dateTime}.zip`
+    );
+
+    console.log(
+      `Creating manual ZIP archive for folder: ${mainFolderName} at path: ${folderPath}`
+    );
+    channel.send(`Creating backup for ${mainFolderName}...`);
+
+    try {
+      // Create a ZIP archive of the folder
+      await createZipArchive(folderPath, zipFilePath);
+      console.log(`Created manual ZIP archive: ${zipFilePath}`);
+      channel.send(`Successfully saved local backup for ${mainFolderName}.`);
+
+      // Handle Google Drive Backup if auth is provided
+      if (drive) {
+        try {
+          const manualFolderName = `${mainFolderName} - Manual Backups`;
+          const res = await drive.files.list({
+            q: `name='${manualFolderName}' and mimeType='application/vnd.google-apps.folder'`,
+            fields: "files(id, name)",
+          });
+
+          const folders = res.data.files;
+          let mainFolderId;
+
+          if (folders.length > 0) {
+            mainFolderId = folders[0].id;
+          } else {
+            const mainFolderMetadata = {
+              name: manualFolderName,
+              mimeType: "application/vnd.google-apps.folder",
+            };
+
+            const mainFolder = await drive.files.create({
+              resource: mainFolderMetadata,
+              fields: "id",
+            });
+            mainFolderId = mainFolder.data.id;
+          }
+
+          // Upload the ZIP file to Google Drive
+          await uploadZipFile(auth, mainFolderId, zipFilePath);
+          console.log(`Manual backup uploaded to Drive for ${mainFolderName}.`);
+          channel.send(
+            `Successfully uploaded manual backup to Drive for ${mainFolderName}.`
+          );
+        } catch (err) {
+          console.error(
+            `Error during Drive manual backup for ${mainFolderName}:`,
+            err
+          );
+          channel.send(
+            `Failed to upload manual backup to Drive for ${mainFolderName}.`
+          );
+        }
+      }
+    } catch (error) {
+      console.error(
+        `Error creating manual backup for ${mainFolderName}:`,
+        error
+      );
+      channel.send(
+        `Error creating backup for ${mainFolderName}. Check console for details.`
+      );
+    }
+  }
+  channel.send("Backup completed");
+}
+
+// Starts the Express server
+app.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
+});

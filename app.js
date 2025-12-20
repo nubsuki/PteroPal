@@ -242,6 +242,33 @@ client.on("messageCreate", async (message) => {
   if (command === "backup") {
     await performManualBackup(message.channel);
   }
+
+  if (command === "help") {
+    const helpMessage = `
+**PteroPal Bot Commands**
+
+**${DISCORD_PREFIX}servers**
+Lists all servers available with their current status.
+
+**${DISCORD_PREFIX}start <number>**
+Starts the server corresponding to the number from the server list.
+*Example: ${DISCORD_PREFIX}start 1*
+
+**${DISCORD_PREFIX}stop <number>**
+Stops the server corresponding to the number from the server list.
+*Example: ${DISCORD_PREFIX}stop 1*
+
+**${DISCORD_PREFIX}backup**
+Triggers an immediate manual backup for all configured folders.
+*These backups are saved to a separate 'manual_backups' folder and are not deleted automatically.*
+
+**${DISCORD_PREFIX}help**
+Shows this help message.
+
+**Made By Nubsuki**
+GitHub: [PteroPal](https://github.com/nubsuki/PteroPal).`;
+    message.channel.send(helpMessage);
+  }
 });
 
 // Logs in the Discord client

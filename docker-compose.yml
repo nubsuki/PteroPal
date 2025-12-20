@@ -1,0 +1,25 @@
+services:
+      pteropal:
+        image: nubsuki/pteropal
+        container_name: pteropal
+        ports:
+          - "3000:3000"
+        environment:
+          - DISCORD_TOKEN=# Discord bot token
+          - DISCORD_PREFIX=. # Discord bot prefix (default: .)
+          - ENABLE_DRIVE_BACKUP=true # true = Backup to Google Drive and local. false = Local backup only.
+          - PTERODACTYL_API_URL=# Pterodactyl API URL
+          - PTERODACTYL_API_KEY=# Pterodactyl API key
+          - FOLDER_NAMES=folder1,folder2  # Comma-separated folder names for backup
+          - FOLDER_PATHS=/path/to/folder1,/path/to/folder2  # Corresponding folder paths
+          - TZ=Asia/Colombo
+          - BACKUP_TIME= # Time for backup 24h format (e.g., 14:30)
+          - MAX_BACKUPS=0 # 0 = Keep all backups. > 0 = Keep latest N backups.
+          - SHUTDOWN_BEFORE_BACKUP=true # Set to false to disable server shutdown before backup
+        volumes:
+          - /mnt/pteropal/config/token.json:/app/token.json  # Mount the token file
+          - /mnt/pteropal/config/credentials.json:/app/credentials.json  # Mount Google Drive credentials
+          - /mnt/pterodactyl/volumes:/pterodactyl/volumes  # Mount the Pterodactyl Save directory
+          - /mnt/pteropal/backups/local_backups:/app/local_backups # Mount local backup directory
+          - /mnt/pteropal/backups/manual_backups:/app/manual_backups # Mount manual backup directory
+        restart: unless-stopped

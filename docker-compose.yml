@@ -1,7 +1,7 @@
 services:
       pteropal:
         image: nubsuki/pteropal
-        container_name: petropal
+        container_name: pteropal
         ports:
           - "3000:3000"
         environment:
@@ -20,5 +20,6 @@ services:
           - /mnt/pteropal/config/token.json:/app/token.json  # Mount the token file
           - /mnt/pteropal/config/credentials.json:/app/credentials.json  # Mount Google Drive credentials
           - /mnt/pterodactyl/volumes:/pterodactyl/volumes  # Mount the Pterodactyl Save directory
-          - /mnt/path/to/host/backups:/app/local_backups # Mount local backup directory
+          - /mnt/pteropal/backups/local_backups:/app/local_backups # Mount local backup directory
+          - /mnt/pteropal/backups/manual_backups:/app/manual_backups # Mount manual backup directory
         restart: unless-stopped

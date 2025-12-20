@@ -24,6 +24,17 @@ const PTERODACTYL_API_URL = process.env.PTERODACTYL_API_URL;
 const PTERODACTYL_API_KEY = process.env.PTERODACTYL_API_KEY;
 const DISCORD_PREFIX = process.env.DISCORD_PREFIX || ".";
 
+// Parse folder names and paths into arrays
+const folderNames = process.env.FOLDER_NAMES.split(",");
+const folderPaths = process.env.FOLDER_PATHS.split(",");
+
+// Use LOCAL_BACKUP_DIR from env or default to "local_backups" in the current directory
+const BACKUP_DIR =
+  process.env.LOCAL_BACKUP_DIR || path.join(__dirname, "local_backups");
+
+// Ensure the backup directory exists
+fs.ensureDirSync(BACKUP_DIR);
+
 let authToken = null;
 
 // Fetches all servers from the Pterodactyl API
@@ -294,10 +305,19 @@ async function initiateBackupSequence() {
     console.log("Skipping server shutdown as per configuration.");
   }
 
-  fs.readFile("credentials.json", (err, content) => {
-    if (err) return console.log("Error loading client secret file:", err);
-    authorize(JSON.parse(content), performBackup);
-  });
+  const enableDriveBackup = process.env.ENABLE_DRIVE_BACKUP !== "false";
+
+  if (enableDriveBackup) {
+    fs.readFile("credentials.json", (err, content) => {
+      if (err) return console.log("Error loading client secret file:", err);
+      authorize(JSON.parse(content), performBackup);
+    });
+  } else {
+    console.log(
+      "Google Drive backup is disabled. Performing local backup only."
+    );
+    await performBackup(null);
+  }
 }
 
 // Initial backup sequence on startup
@@ -370,21 +390,10 @@ async function shutdownServer(serverId, serverName) {
   }
 }
 
-// Parse folder names and paths into arrays
-const folderNames = process.env.FOLDER_NAMES.split(",");
-const folderPaths = process.env.FOLDER_PATHS.split(",");
-
-// Use LOCAL_BACKUP_DIR from env or default to "local_backups" in the current directory
-const BACKUP_DIR =
-  process.env.LOCAL_BACKUP_DIR || path.join(__dirname, "local_backups");
-
-// Ensure the backup directory exists
-fs.ensureDirSync(BACKUP_DIR);
-
 // Performs backup logic
 async function performBackup(auth) {
   console.log("Performing backup for all folders...");
-  await backupToDrive(auth);
+  await processBackups(auth);
 }
 
 // Authorizes the application with Google Drive
@@ -492,9 +501,12 @@ async function uploadZipFile(auth, folderId, zipFilePath) {
   }
 }
 
-// Updates the backupToDrive function to handle compression
-async function backupToDrive(auth) {
-  const drive = google.drive({ version: "v3", auth });
+// Processes backups (Local and optionally Drive)
+async function processBackups(auth) {
+  let drive = null;
+  if (auth) {
+    drive = google.drive({ version: "v3", auth });
+  }
 
   for (const [index, mainFolderName] of folderNames.entries()) {
     const folderPath = folderPaths[index];
@@ -512,17 +524,15 @@ async function backupToDrive(auth) {
     await createZipArchive(folderPath, zipFilePath);
     console.log(`Created ZIP archive: ${zipFilePath}`);
 
-    // Check if the main folder exists in Google Drive
-    drive.files.list(
-      {
-        q: `name='${mainFolderName}' and mimeType='application/vnd.google-apps.folder'`,
-        fields: "files(id, name)",
-      },
-      async (err, res) => {
-        if (err) {
-          console.error("Error searching for main folder:", err);
-          return;
-        }
+    const maxBackups = parseInt(process.env.MAX_BACKUPS);
+
+    // Handle Google Drive Backup if auth is provided
+    if (drive) {
+      try {
+        const res = await drive.files.list({
+          q: `name='${mainFolderName}' and mimeType='application/vnd.google-apps.folder'`,
+          fields: "files(id, name)",
+        });
 
         const folders = res.data.files;
         let mainFolderId;
@@ -544,19 +554,27 @@ async function backupToDrive(auth) {
 
         // Upload the ZIP file to Google Drive
         await uploadZipFile(auth, mainFolderId, zipFilePath);
+        console.log(`Backup uploaded to Drive for ${mainFolderName}.`);
 
-        console.log(`Backup completed for ${mainFolderName}. File saved at: ${zipFilePath}`);
-
-        // Cleanup old backups
-        const maxBackups = parseInt(process.env.MAX_BACKUPS);
+        // Cleanup old Drive backups
         if (!isNaN(maxBackups) && maxBackups > 0) {
           await cleanupOldBackups(auth, mainFolderId, maxBackups);
-          await cleanupLocalBackups(BACKUP_DIR, mainFolderName, maxBackups);
-        } else {
-            console.log("MAX_BACKUPS is 0 or undefined. Keeping all backups.");
         }
+      } catch (err) {
+        console.error(`Error during Drive backup for ${mainFolderName}:`, err);
       }
+    }
+
+    console.log(
+      `Backup process completed for ${mainFolderName}. File saved at: ${zipFilePath}`
     );
+
+    // Cleanup local backups (Independent of Drive)
+    if (!isNaN(maxBackups) && maxBackups > 0) {
+      await cleanupLocalBackups(BACKUP_DIR, mainFolderName, maxBackups);
+    } else {
+      console.log("MAX_BACKUPS is 0 or undefined. Keeping all backups.");
+    }
   }
 }
 

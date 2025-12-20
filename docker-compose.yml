@@ -7,6 +7,7 @@ services:
         environment:
           - DISCORD_TOKEN=# Discord bot token
           - DISCORD_PREFIX=. # Discord bot prefix (default: .)
+          - ENABLE_DRIVE_BACKUP=true # true = Backup to Google Drive and local. false = Local backup only.
           - PTERODACTYL_API_URL=# Pterodactyl API URL
           - PTERODACTYL_API_KEY=# Pterodactyl API key
           - FOLDER_NAMES=folder1,folder2  # Comma-separated folder names for backup

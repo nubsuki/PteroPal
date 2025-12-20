@@ -513,8 +513,82 @@ async function backupToDrive(auth) {
         await uploadZipFile(auth, mainFolderId, zipFilePath);
 
         console.log(`Backup completed for ${mainFolderName}. File saved at: ${zipFilePath}`);
+
+        // Cleanup old backups
+        const maxBackups = parseInt(process.env.MAX_BACKUPS);
+        if (!isNaN(maxBackups) && maxBackups > 0) {
+          await cleanupOldBackups(auth, mainFolderId, maxBackups);
+          await cleanupLocalBackups(BACKUP_DIR, mainFolderName, maxBackups);
+        } else {
+            console.log("MAX_BACKUPS is 0 or undefined. Keeping all backups.");
+        }
       }
     );
+  }
+}
+
+// Cleans up old backups from Google Drive
+async function cleanupOldBackups(auth, folderId, maxBackups) {
+  const drive = google.drive({ version: "v3", auth });
+  try {
+    const res = await drive.files.list({
+      q: `'${folderId}' in parents and trashed = false`,
+      fields: "files(id, name, createdTime)",
+      orderBy: "createdTime desc",
+    });
+
+    const files = res.data.files;
+    if (files.length > maxBackups) {
+      const filesToDelete = files.slice(maxBackups);
+      console.log(
+        `Cleaning up ${filesToDelete.length} old backups from Drive...`
+      );
+      for (const file of filesToDelete) {
+        try {
+          await drive.files.delete({ fileId: file.id });
+          console.log(`Deleted old remote backup: ${file.name}`);
+        } catch (error) {
+          console.error(
+            `Failed to delete remote backup ${file.name}:`,
+            error.message
+          );
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error cleaning up remote backups:", error.message);
+  }
+}
+
+// Cleans up old local backups
+async function cleanupLocalBackups(backupDir, folderName, maxBackups) {
+  try {
+    const files = await fs.readdir(backupDir);
+    const backupFiles = [];
+
+    for (const file of files) {
+      if (file.startsWith(`${folderName}_backup_`) && file.endsWith(".zip")) {
+        const filePath = path.join(backupDir, file);
+        const stats = await fs.stat(filePath);
+        backupFiles.push({ name: file, path: filePath, ctime: stats.ctime });
+      }
+    }
+
+    // Sort by creation time descending (newest first)
+    backupFiles.sort((a, b) => b.ctime - a.ctime);
+
+    if (backupFiles.length > maxBackups) {
+      const filesToDelete = backupFiles.slice(maxBackups);
+      console.log(
+        `Cleaning up ${filesToDelete.length} old local backups for ${folderName}...`
+      );
+      for (const file of filesToDelete) {
+        await fs.remove(file.path);
+        console.log(`Deleted old local backup: ${file.name}`);
+      }
+    }
+  } catch (error) {
+    console.error("Error cleaning up local backups:", error.message);
   }
 }
 

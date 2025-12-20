@@ -12,6 +12,7 @@ services:
           - FOLDER_PATHS=/path/to/folder1,/path/to/folder2  # Corresponding folder paths
           - TZ=Asia/Colombo
           - BACKUP_TIME= # Time for backup 24h format (e.g., 14:30)
+          - MAX_BACKUPS=0 # 0 = Keep all backups. > 0 = Keep latest N backups.
           - SHUTDOWN_BEFORE_BACKUP=true # Set to false to disable server shutdown before backup
         volumes:
           - /mnt/pteropal/config/token.json:/app/token.json  # Mount the token file

@@ -1,6 +1,5 @@
 require("dotenv").config();
 const { Client, GatewayIntentBits } = require("discord.js");
-const axios = require("axios");
 const fs = require("fs-extra");
 const { google } = require("googleapis");
 const path = require("path");
@@ -8,6 +7,10 @@ const express = require("express");
 const app = express();
 const PORT = 3000;
 const archiver = require("archiver");
+
+// Panel modules
+const pterodactylPanel = require("./pterodactylPanel");
+const craftyPanel = require("./craftyPanel");
 
 const SCOPES = ["https://www.googleapis.com/auth/drive.file"];
 const TOKEN_PATH = "token.json";
@@ -20,8 +23,6 @@ const client = new Client({
   ],
 });
 
-const PTERODACTYL_API_URL = process.env.PTERODACTYL_API_URL;
-const PTERODACTYL_API_KEY = process.env.PTERODACTYL_API_KEY;
 const DISCORD_PREFIX = process.env.DISCORD_PREFIX || ".";
 
 // Parse folder names and paths into arrays
@@ -40,60 +41,66 @@ fs.ensureDirSync(MANUAL_BACKUP_DIR);
 
 let authToken = null;
 
-// Fetches all servers from the Pterodactyl API
-async function getServers() {
-  try {
-    const response = await axios.get(`${PTERODACTYL_API_URL}/api/client`, {
-      headers: {
-        Authorization: `Bearer ${PTERODACTYL_API_KEY}`,
-        "Content-Type": "application/json",
-        Accept: "Application/vnd.pterodactyl.v1+json",
-      },
-    });
-
-    // Map server data to a simplified format
-    const servers = await Promise.all(
-      response.data.data.map(async (server) => ({
-        id: server.attributes.identifier,
-        name: server.attributes.name,
-        status: await getServerStatus(server.attributes.identifier),
-      }))
-    );
-
-    console.log("Servers fetched:", servers);
-    return servers;
-  } catch (error) {
-    console.error("Error fetching servers:", error.message);
-    return [];
+// Returns an array of configured panel modules
+function getConfiguredPanels() {
+  const panels = [];
+  if (pterodactylPanel.isConfigured()) {
+    panels.push(pterodactylPanel);
   }
+  if (craftyPanel.isConfigured()) {
+    panels.push(craftyPanel);
+  }
+  return panels;
 }
 
-// Starts a specified server
-async function startServer(serverId, serverName, channel) {
-  console.log(`Starting server: ${serverName} (ID: ${serverId})`);
+// Fetches all servers from all configured panels
+// Returns a flat array with panel info attached to each server
+async function getAllServers() {
+  const panels = getConfiguredPanels();
+  const allServers = [];
+
+  for (const panel of panels) {
+    try {
+      const servers = await panel.getServers();
+      for (const server of servers) {
+        allServers.push({
+          ...server,
+          panel: panel.panelName,
+          panelModule: panel,
+        });
+      }
+    } catch (error) {
+      console.error(
+        `Error fetching servers from ${panel.panelName}:`,
+        error.message
+      );
+    }
+  }
+
+  return allServers;
+}
+
+// Starts a specified server using its panel module
+async function startServer(server, channel) {
+  const { id: serverId, name: serverName, panelModule } = server;
+  console.log(
+    `Starting server: ${serverName} (ID: ${serverId}) on ${panelModule.panelName}`
+  );
   try {
-    const initialStatus = await getServerStatus(serverId);
+    const initialStatus = await panelModule.getServerStatus(serverId);
     console.log(`Initial status of ${serverName}: ${initialStatus}`);
 
     if (initialStatus === "running") {
-      channel.send(`Server "${serverName}" is already running!`);
+      channel.send(
+        `Server "${serverName}" (${panelModule.panelName}) is already running!`
+      );
       return;
     }
 
-    await axios.post(
-      `${PTERODACTYL_API_URL}/api/client/servers/${serverId}/power`,
-      { signal: "start" },
-      {
-        headers: {
-          Authorization: `Bearer ${PTERODACTYL_API_KEY}`,
-          "Content-Type": "application/json",
-          Accept: "Application/vnd.pterodactyl.v1+json",
-        },
-      }
-    );
+    await panelModule.sendPowerAction(serverId, "start");
     console.log(`Start command sent for ${serverName}`);
     channel.send(
-      `Server "${serverName}" start command sent. Waiting for it to come online...`
+      `Server "${serverName}" (${panelModule.panelName}) start command sent. Waiting for it to come online...`
     );
 
     // Poll for status
@@ -102,17 +109,19 @@ async function startServer(serverId, serverName, channel) {
 
     const pollInterval = setInterval(async () => {
       retries++;
-      const currentStatus = await getServerStatus(serverId);
+      const currentStatus = await panelModule.getServerStatus(serverId);
       console.log(
         `Checking status for ${serverName}: ${currentStatus} (Attempt ${retries}/${maxRetries})`
       );
 
       if (currentStatus === "running") {
-        channel.send(`Server "${serverName}" is now ONLINE!`);
+        channel.send(
+          `Server "${serverName}" (${panelModule.panelName}) is now ONLINE!`
+        );
         clearInterval(pollInterval);
       } else if (retries >= maxRetries) {
         channel.send(
-          `Server "${serverName}" took too long to start. Please check the panel.`
+          `Server "${serverName}" (${panelModule.panelName}) took too long to start. Please check the panel.`
         );
         clearInterval(pollInterval);
       }
@@ -120,36 +129,29 @@ async function startServer(serverId, serverName, channel) {
   } catch (error) {
     console.error(`Error starting server ${serverName}:`, error.message);
     channel.send(
-      `Failed to start server "${serverName}". Check console for details.`
+      `Failed to start server "${serverName}" (${panelModule.panelName}). Check console for details.`
     );
   }
 }
 
-// Stops a specified server
-async function stopServer(serverId, serverName, channel) {
+// Stops a specified server using its panel module
+async function stopServer(server, channel) {
+  const { id: serverId, name: serverName, panelModule } = server;
   try {
-    const initialStatus = await getServerStatus(serverId);
+    const initialStatus = await panelModule.getServerStatus(serverId);
     console.log(`Initial status of ${serverName}: ${initialStatus}`);
 
     if (initialStatus === "offline") {
-      channel.send(`Server "${serverName}" is already stopped!`);
+      channel.send(
+        `Server "${serverName}" (${panelModule.panelName}) is already stopped!`
+      );
       return;
     }
 
-    await axios.post(
-      `${PTERODACTYL_API_URL}/api/client/servers/${serverId}/power`,
-      { signal: "stop" },
-      {
-        headers: {
-          Authorization: `Bearer ${PTERODACTYL_API_KEY}`,
-          "Content-Type": "application/json",
-          Accept: "Application/vnd.pterodactyl.v1+json",
-        },
-      }
-    );
+    await panelModule.sendPowerAction(serverId, "stop");
 
     channel.send(
-      `Server "${serverName}" stop command sent. Waiting for it to go offline...`
+      `Server "${serverName}" (${panelModule.panelName}) stop command sent. Waiting for it to go offline...`
     );
 
     // Poll for status
@@ -158,17 +160,19 @@ async function stopServer(serverId, serverName, channel) {
 
     const pollInterval = setInterval(async () => {
       retries++;
-      const currentStatus = await getServerStatus(serverId);
+      const currentStatus = await panelModule.getServerStatus(serverId);
       console.log(
         `Checking status for ${serverName}: ${currentStatus} (Attempt ${retries}/${maxRetries})`
       );
 
       if (currentStatus === "offline") {
-        channel.send(`Server "${serverName}" is now OFFLINE!`);
+        channel.send(
+          `Server "${serverName}" (${panelModule.panelName}) is now OFFLINE!`
+        );
         clearInterval(pollInterval);
       } else if (retries >= maxRetries) {
         channel.send(
-          `Server "${serverName}" took too long to stop. Please check the panel.`
+          `Server "${serverName}" (${panelModule.panelName}) took too long to stop. Please check the panel.`
         );
         clearInterval(pollInterval);
       }
@@ -176,7 +180,7 @@ async function stopServer(serverId, serverName, channel) {
   } catch (error) {
     console.error(`Error stopping server ${serverName}:`, error.message);
     channel.send(
-      `Failed to stop server "${serverName}". Check console for details.`
+      `Failed to stop server "${serverName}" (${panelModule.panelName}). Check console for details.`
     );
   }
 }
@@ -191,24 +195,28 @@ client.on("messageCreate", async (message) => {
   if (command === "servers") {
     console.log("Executing servers command");
     try {
-      const servers = await getServers();
+      const servers = await getAllServers();
       if (servers.length === 0) {
         return message.channel.send(
           "No servers available or there was an error fetching servers."
         );
       }
 
-      const serverList = servers
-        .map(
-          (server, index) =>
-            `${index + 1}. ${server.name} - Status: ${
-              server.status || "Unknown"
-            }`
-        )
-        .join("\n");
+      // Group servers by panel
+      let serverList = "";
+      let currentPanel = "";
+      servers.forEach((server, index) => {
+        if (server.panel !== currentPanel) {
+          currentPanel = server.panel;
+          serverList += `\n**${currentPanel}**\n`;
+        }
+        serverList += `${index + 1}. ${server.name} - Status: ${
+          server.status || "Unknown"
+        }\n`;
+      });
 
       await message.channel.send(
-        `Available servers:\n${serverList}\n\nUse ${DISCORD_PREFIX}start <number> to start a server.\nUse ${DISCORD_PREFIX}stop <number> to stop a server.\nUse ${DISCORD_PREFIX}backup to trigger a manual backup.`
+        `Available servers:${serverList}\nUse ${DISCORD_PREFIX}start <number> to start a server.\nUse ${DISCORD_PREFIX}stop <number> to stop a server.\nUse ${DISCORD_PREFIX}backup to trigger a manual backup.`
       );
     } catch (error) {
       message.channel.send("An error occurred while processing the command.");
@@ -217,26 +225,26 @@ client.on("messageCreate", async (message) => {
 
   if (command === "start" && args[1]) {
     const serverIndex = parseInt(args[1]) - 1; // Convert to 0-based index
-    const servers = await getServers();
+    const servers = await getAllServers();
 
     if (serverIndex < 0 || serverIndex >= servers.length) {
       return message.channel.send("Invalid server number.");
     }
 
     const server = servers[serverIndex];
-    await startServer(server.id, server.name, message.channel);
+    await startServer(server, message.channel);
   }
 
   if (command === "stop" && args[1]) {
     const serverIndex = parseInt(args[1]) - 1; // Convert to 0-based index
-    const servers = await getServers();
+    const servers = await getAllServers();
 
     if (serverIndex < 0 || serverIndex >= servers.length) {
       return message.channel.send("Invalid server number.");
     }
 
     const server = servers[serverIndex];
-    await stopServer(server.id, server.name, message.channel);
+    await stopServer(server, message.channel);
   }
 
   if (command === "backup") {
@@ -244,11 +252,16 @@ client.on("messageCreate", async (message) => {
   }
 
   if (command === "help") {
+    const panels = getConfiguredPanels();
+    const panelList = panels.map((p) => p.panelName).join(", ") || "None";
+
     const helpMessage = `
 **PteroPal Bot Commands**
 
+**Active Panels:** ${panelList}
+
 **${DISCORD_PREFIX}servers**
-Lists all servers available with their current status.
+Lists all servers from all configured panels with their current status.
 
 **${DISCORD_PREFIX}start <number>**
 Starts the server corresponding to the number from the server list.
@@ -274,6 +287,10 @@ GitHub: [PteroPal](https://github.com/nubsuki/PteroPal).`;
 // Logs in the Discord client
 client.on("clientReady", () => {
   console.log(`Logged in as ${client.user.tag}!`);
+  const panels = getConfiguredPanels();
+  console.log(
+    `Active panels: ${panels.map((p) => p.panelName).join(", ") || "None"}`
+  );
 });
 
 client.login(process.env.DISCORD_TOKEN);
@@ -312,10 +329,10 @@ async function initiateBackupSequence() {
   const shouldShutdown = process.env.SHUTDOWN_BEFORE_BACKUP !== "false";
 
   if (shouldShutdown) {
-    // Shutdown all servers
-    const servers = await getServers();
+    // Shutdown all servers from all configured panels
+    const servers = await getAllServers();
     for (const server of servers) {
-      await shutdownServer(server.id, server.name);
+      await shutdownServer(server);
     }
 
     // Wait until all servers are offline
@@ -324,10 +341,12 @@ async function initiateBackupSequence() {
     while (!allOffline) {
       allOffline = true;
       for (const server of servers) {
-        const status = await getServerStatus(server.id);
+        const status = await server.panelModule.getServerStatus(server.id);
         if (status !== "offline") {
           allOffline = false;
-          console.log(`Server ${server.name} is still ${status}. Waiting...`);
+          console.log(
+            `Server ${server.name} (${server.panel}) is still ${status}. Waiting...`
+          );
         }
       }
       if (!allOffline) {
@@ -351,6 +370,21 @@ async function initiateBackupSequence() {
       "Google Drive backup is disabled. Performing local backup only."
     );
     await performBackup(null);
+  }
+}
+
+// Shuts down a server using its panel module
+async function shutdownServer(server) {
+  try {
+    await server.panelModule.sendPowerAction(server.id, "stop");
+    console.log(
+      `Server ${server.name} (${server.panel}) has been shut down.`
+    );
+  } catch (error) {
+    console.error(
+      `Error shutting down server ${server.name} (${server.panel}):`,
+      error.message
+    );
   }
 }
 
@@ -383,46 +417,6 @@ setInterval(async () => {
   // Trigger time-based actions
   await checkTimeAndPerformActions();
 }, 60000); // 1 minute in milliseconds
-
-// Fetches the current status of a server
-async function getServerStatus(serverId) {
-  try {
-    const response = await axios.get(
-      `${PTERODACTYL_API_URL}/api/client/servers/${serverId}/resources`,
-      {
-        headers: {
-          Authorization: `Bearer ${PTERODACTYL_API_KEY}`,
-          "Content-Type": "application/json",
-          Accept: "Application/vnd.pterodactyl.v1+json",
-        },
-      }
-    );
-    return response.data.attributes.current_state;
-  } catch (error) {
-    console.error("Error fetching server status:", error.message);
-    return "unknown";
-  }
-}
-
-// Shuts down a specified server
-async function shutdownServer(serverId, serverName) {
-  try {
-    await axios.post(
-      `${PTERODACTYL_API_URL}/api/client/servers/${serverId}/power`,
-      { signal: "stop" },
-      {
-        headers: {
-          Authorization: `Bearer ${PTERODACTYL_API_KEY}`,
-          "Content-Type": "application/json",
-          Accept: "Application/vnd.pterodactyl.v1+json",
-        },
-      }
-    );
-    console.log(`Server ${serverName} has been shut down.`);
-  } catch (error) {
-    console.error(`Error shutting down server ${serverName}:`, error.message);
-  }
-}
 
 // Performs backup logic
 async function performBackup(auth) {

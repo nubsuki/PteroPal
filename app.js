@@ -1,47 +1,35 @@
 require("dotenv").config();
-const { Client, GatewayIntentBits } = require("discord.js");
-const fs = require("fs-extra");
-const { google } = require("googleapis");
-const path = require("path");
 const express = require("express");
-const app = express();
-const PORT = 3000;
-const archiver = require("archiver");
+const path = require("path");
 
-// Panel modules
+// ── Module Imports ──
+const folderConfig = require("./modules/folderConfig");
+const googleDrive = require("./modules/googleDrive");
+const backup = require("./modules/backup");
+const discord = require("./modules/discord");
+const scheduler = require("./modules/scheduler");
+const apiRoutes = require("./routes/api");
+
+// ── Panel Modules ──
 const pterodactylPanel = require("./pterodactylPanel");
 const craftyPanel = require("./craftyPanel");
 
-const SCOPES = ["https://www.googleapis.com/auth/drive.file"];
-const TOKEN_PATH = "token.json";
+// ── Express Setup ──
+const app = express();
+const PORT = 3000;
 
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-  ],
-});
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, "public")));
+app.use(express.json());
 
-const DISCORD_PREFIX = process.env.DISCORD_PREFIX || ".";
+// Set Express app for Google Drive OAuth callback
+googleDrive.setExpressApp(app);
 
-// Parse folder names and paths into arrays
-const folderNames = process.env.FOLDER_NAMES.split(",");
-const folderPaths = process.env.FOLDER_PATHS.split(",");
+// ── Panel Helpers ──
 
-// Use LOCAL_BACKUP_DIR from env or default to "local_backups" in the current directory
-const BACKUP_DIR =
-  process.env.LOCAL_BACKUP_DIR || path.join(__dirname, "local_backups");
-
-const MANUAL_BACKUP_DIR = path.join(__dirname, "manual_backups");
-
-// Ensure the backup directory exists
-fs.ensureDirSync(BACKUP_DIR);
-fs.ensureDirSync(MANUAL_BACKUP_DIR);
-
-let authToken = null;
-
-// Returns an array of configured panel modules
+/**
+ * Returns an array of configured panel modules
+ */
 function getConfiguredPanels() {
   const panels = [];
   if (pterodactylPanel.isConfigured()) {
@@ -53,8 +41,10 @@ function getConfiguredPanels() {
   return panels;
 }
 
-// Fetches all servers from all configured panels
-// Returns a flat array with panel info attached to each server
+/**
+ * Fetches all servers from all configured panels
+ * Returns a flat array with panel info attached to each server
+ */
 async function getAllServers() {
   const panels = getConfiguredPanels();
   const allServers = [];
@@ -72,7 +62,7 @@ async function getAllServers() {
     } catch (error) {
       console.error(
         `Error fetching servers from ${panel.panelName}:`,
-        error.message
+        error.message,
       );
     }
   }
@@ -80,713 +70,36 @@ async function getAllServers() {
   return allServers;
 }
 
-// Starts a specified server using its panel module
-async function startServer(server, channel) {
-  const { id: serverId, name: serverName, panelModule } = server;
-  console.log(
-    `Starting server: ${serverName} (ID: ${serverId}) on ${panelModule.panelName}`
-  );
-  try {
-    const initialStatus = await panelModule.getServerStatus(serverId);
-    console.log(`Initial status of ${serverName}: ${initialStatus}`);
+// ── Routes ──
 
-    if (initialStatus === "running") {
-      channel.send(
-        `Server "${serverName}" (${panelModule.panelName}) is already running!`
-      );
-      return;
-    }
-
-    await panelModule.sendPowerAction(serverId, "start");
-    console.log(`Start command sent for ${serverName}`);
-    channel.send(
-      `Server "${serverName}" (${panelModule.panelName}) start command sent. Waiting for it to come online...`
-    );
-
-    // Poll for status
-    const maxRetries = 60; // 5 minutes (60 * 5s)
-    let retries = 0;
-
-    const pollInterval = setInterval(async () => {
-      retries++;
-      const currentStatus = await panelModule.getServerStatus(serverId);
-      console.log(
-        `Checking status for ${serverName}: ${currentStatus} (Attempt ${retries}/${maxRetries})`
-      );
-
-      if (currentStatus === "running") {
-        channel.send(
-          `Server "${serverName}" (${panelModule.panelName}) is now ONLINE!`
-        );
-        clearInterval(pollInterval);
-      } else if (retries >= maxRetries) {
-        channel.send(
-          `Server "${serverName}" (${panelModule.panelName}) took too long to start. Please check the panel.`
-        );
-        clearInterval(pollInterval);
-      }
-    }, 5000);
-  } catch (error) {
-    console.error(`Error starting server ${serverName}:`, error.message);
-    channel.send(
-      `Failed to start server "${serverName}" (${panelModule.panelName}). Check console for details.`
-    );
-  }
-}
-
-// Stops a specified server using its panel module
-async function stopServer(server, channel) {
-  const { id: serverId, name: serverName, panelModule } = server;
-  try {
-    const initialStatus = await panelModule.getServerStatus(serverId);
-    console.log(`Initial status of ${serverName}: ${initialStatus}`);
-
-    if (initialStatus === "offline") {
-      channel.send(
-        `Server "${serverName}" (${panelModule.panelName}) is already stopped!`
-      );
-      return;
-    }
-
-    await panelModule.sendPowerAction(serverId, "stop");
-
-    channel.send(
-      `Server "${serverName}" (${panelModule.panelName}) stop command sent. Waiting for it to go offline...`
-    );
-
-    // Poll for status
-    const maxRetries = 60; // 5 minutes (60 * 5s)
-    let retries = 0;
-
-    const pollInterval = setInterval(async () => {
-      retries++;
-      const currentStatus = await panelModule.getServerStatus(serverId);
-      console.log(
-        `Checking status for ${serverName}: ${currentStatus} (Attempt ${retries}/${maxRetries})`
-      );
-
-      if (currentStatus === "offline") {
-        channel.send(
-          `Server "${serverName}" (${panelModule.panelName}) is now OFFLINE!`
-        );
-        clearInterval(pollInterval);
-      } else if (retries >= maxRetries) {
-        channel.send(
-          `Server "${serverName}" (${panelModule.panelName}) took too long to stop. Please check the panel.`
-        );
-        clearInterval(pollInterval);
-      }
-    }, 5000);
-  } catch (error) {
-    console.error(`Error stopping server ${serverName}:`, error.message);
-    channel.send(
-      `Failed to stop server "${serverName}" (${panelModule.panelName}). Check console for details.`
-    );
-  }
-}
-
-// Handles incoming messages and commands from Discord
-client.on("messageCreate", async (message) => {
-  if (!message.content.startsWith(DISCORD_PREFIX)) return;
-
-  const args = message.content.slice(DISCORD_PREFIX.length).trim().split(" ");
-  const command = args[0].toLowerCase();
-
-  if (command === "servers") {
-    console.log("Executing servers command");
-    try {
-      const servers = await getAllServers();
-      if (servers.length === 0) {
-        return message.channel.send(
-          "No servers available or there was an error fetching servers."
-        );
-      }
-
-      // Group servers by panel
-      let serverList = "";
-      let currentPanel = "";
-      servers.forEach((server, index) => {
-        if (server.panel !== currentPanel) {
-          currentPanel = server.panel;
-          serverList += `\n**${currentPanel}**\n`;
-        }
-        serverList += `${index + 1}. ${server.name} - Status: ${
-          server.status || "Unknown"
-        }\n`;
-      });
-
-      await message.channel.send(
-        `Available servers:${serverList}\nUse ${DISCORD_PREFIX}start <number> to start a server.\nUse ${DISCORD_PREFIX}stop <number> to stop a server.\nUse ${DISCORD_PREFIX}backup to trigger a manual backup.`
-      );
-    } catch (error) {
-      message.channel.send("An error occurred while processing the command.");
-    }
-  }
-
-  if (command === "start" && args[1]) {
-    const serverIndex = parseInt(args[1]) - 1; // Convert to 0-based index
-    const servers = await getAllServers();
-
-    if (serverIndex < 0 || serverIndex >= servers.length) {
-      return message.channel.send("Invalid server number.");
-    }
-
-    const server = servers[serverIndex];
-    await startServer(server, message.channel);
-  }
-
-  if (command === "stop" && args[1]) {
-    const serverIndex = parseInt(args[1]) - 1; // Convert to 0-based index
-    const servers = await getAllServers();
-
-    if (serverIndex < 0 || serverIndex >= servers.length) {
-      return message.channel.send("Invalid server number.");
-    }
-
-    const server = servers[serverIndex];
-    await stopServer(server, message.channel);
-  }
-
-  if (command === "backup") {
-    await performManualBackup(message.channel);
-  }
-
-  if (command === "help") {
-    const panels = getConfiguredPanels();
-    const panelList = panels.map((p) => p.panelName).join(", ") || "None";
-
-    const helpMessage = `
-**PteroPal Bot Commands**
-
-**Active Panels:** ${panelList}
-
-**${DISCORD_PREFIX}servers**
-Lists all servers from all configured panels with their current status.
-
-**${DISCORD_PREFIX}start <number>**
-Starts the server corresponding to the number from the server list.
-*Example: ${DISCORD_PREFIX}start 1*
-
-**${DISCORD_PREFIX}stop <number>**
-Stops the server corresponding to the number from the server list.
-*Example: ${DISCORD_PREFIX}stop 1*
-
-**${DISCORD_PREFIX}backup**
-Triggers an immediate manual backup for all configured folders.
-*These backups are saved to a separate 'manual_backups' folder and are not deleted automatically.*
-
-**${DISCORD_PREFIX}help**
-Shows this help message.
-
-**Made By Nubsuki**
-GitHub: [PteroPal](https://github.com/nubsuki/PteroPal).`;
-    message.channel.send(helpMessage);
-  }
-});
-
-// Logs in the Discord client
-client.on("clientReady", () => {
-  console.log(`Logged in as ${client.user.tag}!`);
-  const panels = getConfiguredPanels();
-  console.log(
-    `Active panels: ${panels.map((p) => p.panelName).join(", ") || "None"}`
-  );
-});
-
-client.login(process.env.DISCORD_TOKEN);
-
-
-
-// Checks if it's the specified backup time in the configured time zone
-function isTimeBackup() {
-  const now = new Date();
-  const options = {
-    timeZone: process.env.TZ,
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  };
-  const timeInConfiguredZone = now.toLocaleTimeString("en-US", options);
-  return timeInConfiguredZone === process.env.BACKUP_TIME;
-}
-
-// Function to check time and perform actions
-async function checkTimeAndPerformActions() {
-  // Check if it's the specified backup time
-  if (isTimeBackup()) {
-    console.log("Time for scheduled backup.");
-    await initiateBackupSequence();
-  } else {
-    console.log("Not the time for backup.");
-  }
-}
-
-// Orchestrates the shutdown, wait, and backup process
-async function initiateBackupSequence() {
-  console.log("Starting backup process...");
-
-  // Check if shutdown is enabled (defaults to true)
-  const shouldShutdown = process.env.SHUTDOWN_BEFORE_BACKUP !== "false";
-
-  if (shouldShutdown) {
-    // Shutdown all servers from all configured panels
-    const servers = await getAllServers();
-    for (const server of servers) {
-      await shutdownServer(server);
-    }
-
-    // Wait until all servers are offline
-    console.log("Waiting for servers to go offline...");
-    let allOffline = false;
-    while (!allOffline) {
-      allOffline = true;
-      for (const server of servers) {
-        const status = await server.panelModule.getServerStatus(server.id);
-        if (status !== "offline") {
-          allOffline = false;
-          console.log(
-            `Server ${server.name} (${server.panel}) is still ${status}. Waiting...`
-          );
-        }
-      }
-      if (!allOffline) {
-        await new Promise((resolve) => setTimeout(resolve, 5000));
-      }
-    }
-    console.log("All servers are offline. Proceeding with backup.");
-  } else {
-    console.log("Skipping server shutdown as per configuration.");
-  }
-
-  const enableDriveBackup = process.env.ENABLE_DRIVE_BACKUP !== "false";
-
-  if (enableDriveBackup) {
-    fs.readFile("credentials.json", (err, content) => {
-      if (err) return console.log("Error loading client secret file:", err);
-      authorize(JSON.parse(content), performBackup);
-    });
-  } else {
-    console.log(
-      "Google Drive backup is disabled. Performing local backup only."
-    );
-    await performBackup(null);
-  }
-}
-
-// Shuts down a server using its panel module
-async function shutdownServer(server) {
-  try {
-    await server.panelModule.sendPowerAction(server.id, "stop");
-    console.log(
-      `Server ${server.name} (${server.panel}) has been shut down.`
-    );
-  } catch (error) {
-    console.error(
-      `Error shutting down server ${server.name} (${server.panel}):`,
-      error.message
-    );
-  }
-}
-
-// Initial backup sequence on startup
-initiateBackupSequence();
-
-// Periodically checks server status and performs actions based on time
-setInterval(async () => {
-  console.log("-----------------------------------");
-  console.log("Performing automatic server check");
-  console.log(new Date().toLocaleString());
-
-  // Get folder paths from environment variable
-  const folderPaths = process.env.FOLDER_PATHS.split(",");
-
-  // Check directory accessibility
-  for (const path of folderPaths) {
-    const trimmedPath = path.trim(); // Trim any whitespace
-    const isAccessible = await checkDirectoryAccessible(trimmedPath);
-    if (isAccessible) {
-      console.log(`Files are accessible in: ${trimmedPath}`);
-    } else {
-      console.log(`Files are NOT accessible in: ${trimmedPath}`);
-    }
-  }
-
-  console.log("Automatic check completed");
-  console.log("-----------------------------------");
-
-  // Trigger time-based actions
-  await checkTimeAndPerformActions();
-}, 60000); // 1 minute in milliseconds
-
-// Performs backup logic
-async function performBackup(auth) {
-  console.log("Performing backup for all folders...");
-  await processBackups(auth);
-}
-
-// Authorizes the application with Google Drive
-function authorize(credentials, callback) {
-  const { client_secret, client_id, redirect_uris } = credentials.web;
-  const oAuth2Client = new google.auth.OAuth2(
-    client_id,
-    client_secret,
-    redirect_uris[0]
-  );
-
-  fs.readFile(TOKEN_PATH, (err, token) => {
-    if (err) return getAccessToken(oAuth2Client, callback);
-    oAuth2Client.setCredentials(JSON.parse(token));
-    callback(oAuth2Client);
-  });
-}
-
-// Gets access token for Google Drive
-function getAccessToken(oAuth2Client, callback) {
-  const authUrl = oAuth2Client.generateAuthUrl({
-    access_type: "offline",
-    scope: SCOPES,
-    prompt: "consent",
-  });
-  console.log("Authorize this app by visiting this url:", authUrl);
-  app.get("/auth", (req, res) => {
-    const code = req.query.code;
-    if (code) {
-      oAuth2Client.getToken(code, (err, token) => {
-        if (err) return console.error("Error retrieving access token", err);
-        oAuth2Client.setCredentials(token);
-        fs.writeFile(TOKEN_PATH, JSON.stringify(token), (err) => {
-          if (err) return console.error(err);
-          console.log("Token stored to", TOKEN_PATH);
-        });
-        callback(oAuth2Client);
-        res.send("Authorization successful. You can close this window.");
-      });
-    } else {
-      res.send("No authorization code provided.");
-    }
-  });
-}
-
-// Defines a route for the root URL
+// Root route — serve dashboard
 app.get("/", (req, res) => {
   if (req.query.code) {
     return res.redirect(`/auth?code=${encodeURIComponent(req.query.code)}`);
   }
-  res.send("Welcome to the Backup Script!");
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-// Logs the folder names and paths
-console.log("Folder Names:", folderNames);
-console.log("Folder Paths:", folderPaths);
+// API routes
+app.use("/api", apiRoutes.init({ getConfiguredPanels, getAllServers }));
 
-// Function to create a ZIP archive of the specified folder
-async function createZipArchive(folderPath, zipFilePath) {
-  return new Promise((resolve, reject) => {
-    const output = fs.createWriteStream(zipFilePath);
-    const archive = archiver("zip", {
-      zlib: { level: 9 }, // compression level
-    });
+// ── Initialize Modules ──
 
-    output.on("close", () => {
-      console.log(
-        `Created ZIP archive: ${zipFilePath} (${archive.pointer()} total bytes)`
-      );
-      resolve();
-    });
+// Log folder config
+console.log("Folder Names:", folderConfig.getFolderNames());
+console.log("Folder Paths:", folderConfig.getFolderPaths());
 
-    archive.on("error", (err) => {
-      console.error("Error creating ZIP archive:", err);
-      reject(err);
-    });
+// Initialize Discord bot
+discord.init({
+  getAllServers,
+  getConfiguredPanels,
+  performManualBackup: backup.performManualBackup,
+});
 
-    archive.pipe(output);
-    archive.directory(folderPath, false); // Add the folder to the archive
-    archive.finalize();
-  });
-}
+// Initialize scheduler
+scheduler.init({ getAllServers });
 
-// Uploads the ZIP file to Google Drive
-async function uploadZipFile(auth, folderId, zipFilePath) {
-  const drive = google.drive({ version: "v3", auth });
-  const fileMetadata = {
-    name: path.basename(zipFilePath),
-    parents: [folderId],
-  };
-  const media = {
-    mimeType: "application/zip",
-    body: fs.createReadStream(zipFilePath),
-  };
-
-  try {
-    const file = await drive.files.create({
-      resource: fileMetadata,
-      media: media,
-      fields: "id",
-    });
-    console.log("Uploaded ZIP File Id:", file.data.id);
-  } catch (err) {
-    console.error("Error uploading ZIP file:", err);
-  }
-}
-
-// Processes backups (Local and optionally Drive)
-async function processBackups(auth) {
-  let drive = null;
-  if (auth) {
-    drive = google.drive({ version: "v3", auth });
-  }
-
-  for (const [index, mainFolderName] of folderNames.entries()) {
-    const folderPath = folderPaths[index];
-    const dateTime = new Date().toISOString().replace(/[:.]/g, "-");
-    const zipFilePath = path.join(
-      BACKUP_DIR, // Save ZIP files in the backup directory
-      `${mainFolderName}_backup_${dateTime}.zip`
-    );
-
-    console.log(
-      `Creating ZIP archive for folder: ${mainFolderName} at path: ${folderPath}`
-    );
-
-    // Create a ZIP archive of the folder
-    await createZipArchive(folderPath, zipFilePath);
-    console.log(`Created ZIP archive: ${zipFilePath}`);
-
-    const maxBackups = parseInt(process.env.MAX_BACKUPS);
-
-    // Handle Google Drive Backup if auth is provided
-    if (drive) {
-      try {
-        const res = await drive.files.list({
-          q: `name='${mainFolderName}' and mimeType='application/vnd.google-apps.folder'`,
-          fields: "files(id, name)",
-        });
-
-        const folders = res.data.files;
-        let mainFolderId;
-
-        if (folders.length > 0) {
-          mainFolderId = folders[0].id;
-        } else {
-          const mainFolderMetadata = {
-            name: mainFolderName,
-            mimeType: "application/vnd.google-apps.folder",
-          };
-
-          const mainFolder = await drive.files.create({
-            resource: mainFolderMetadata,
-            fields: "id",
-          });
-          mainFolderId = mainFolder.data.id;
-        }
-
-        // Upload the ZIP file to Google Drive
-        await uploadZipFile(auth, mainFolderId, zipFilePath);
-        console.log(`Backup uploaded to Drive for ${mainFolderName}.`);
-
-        // Cleanup old Drive backups
-        if (!isNaN(maxBackups) && maxBackups > 0) {
-          await cleanupOldBackups(auth, mainFolderId, maxBackups);
-        }
-      } catch (err) {
-        console.error(`Error during Drive backup for ${mainFolderName}:`, err);
-      }
-    }
-
-    console.log(
-      `Backup process completed for ${mainFolderName}. File saved at: ${zipFilePath}`
-    );
-
-    // Cleanup local backups (Independent of Drive)
-    if (!isNaN(maxBackups) && maxBackups > 0) {
-      await cleanupLocalBackups(BACKUP_DIR, mainFolderName, maxBackups);
-    } else {
-      console.log("MAX_BACKUPS is 0 or undefined. Keeping all backups.");
-    }
-  }
-}
-
-// Cleans up old backups from Google Drive
-async function cleanupOldBackups(auth, folderId, maxBackups) {
-  const drive = google.drive({ version: "v3", auth });
-  try {
-    const res = await drive.files.list({
-      q: `'${folderId}' in parents and trashed = false`,
-      fields: "files(id, name, createdTime)",
-      orderBy: "createdTime desc",
-    });
-
-    const files = res.data.files;
-    if (files.length > maxBackups) {
-      const filesToDelete = files.slice(maxBackups);
-      console.log(
-        `Cleaning up ${filesToDelete.length} old backups from Drive...`
-      );
-      for (const file of filesToDelete) {
-        try {
-          await drive.files.delete({ fileId: file.id });
-          console.log(`Deleted old remote backup: ${file.name}`);
-        } catch (error) {
-          console.error(
-            `Failed to delete remote backup ${file.name}:`,
-            error.message
-          );
-        }
-      }
-    }
-  } catch (error) {
-    console.error("Error cleaning up remote backups:", error.message);
-  }
-}
-
-// Cleans up old local backups
-async function cleanupLocalBackups(backupDir, folderName, maxBackups) {
-  try {
-    const files = await fs.readdir(backupDir);
-    const backupFiles = [];
-
-    for (const file of files) {
-      if (file.startsWith(`${folderName}_backup_`) && file.endsWith(".zip")) {
-        const filePath = path.join(backupDir, file);
-        const stats = await fs.stat(filePath);
-        backupFiles.push({ name: file, path: filePath, ctime: stats.ctime });
-      }
-    }
-
-    // Sort by creation time descending (newest first)
-    backupFiles.sort((a, b) => b.ctime - a.ctime);
-
-    if (backupFiles.length > maxBackups) {
-      const filesToDelete = backupFiles.slice(maxBackups);
-      console.log(
-        `Cleaning up ${filesToDelete.length} old local backups for ${folderName}...`
-      );
-      for (const file of filesToDelete) {
-        await fs.remove(file.path);
-        console.log(`Deleted old local backup: ${file.name}`);
-      }
-    }
-  } catch (error) {
-    console.error("Error cleaning up local backups:", error.message);
-  }
-}
-
-// Function to check if a directory is accessible
-async function checkDirectoryAccessible(path) {
-  try {
-    await fs.access(path);
-    return true;
-  } catch (error) {
-    console.error(`Error accessing ${path}:`, error.message);
-    return false;
-  }
-}
-
-// Performs manual backup logic (Local and optionally Drive)
-async function performManualBackup(channel) {
-  channel.send("Manual backup triggered");
-
-  const enableDriveBackup = process.env.ENABLE_DRIVE_BACKUP !== "false";
-
-  if (enableDriveBackup) {
-    fs.readFile("credentials.json", (err, content) => {
-      if (err) {
-        console.log("Error loading client secret file:", err);
-        channel.send("Error loading Drive credentials. Check console.");
-        return;
-      }
-      authorize(JSON.parse(content), (auth) =>
-        executeManualBackup(auth, channel)
-      );
-    });
-  } else {
-    await executeManualBackup(null, channel);
-  }
-}
-
-async function executeManualBackup(auth, channel) {
-  console.log("Starting manual backup execution...");
-  let drive = null;
-  if (auth) {
-    drive = google.drive({ version: "v3", auth });
-  }
-
-  for (const [index, mainFolderName] of folderNames.entries()) {
-    const folderPath = folderPaths[index];
-    const dateTime = new Date().toISOString().replace(/[:.]/g, "-");
-    const zipFilePath = path.join(
-      MANUAL_BACKUP_DIR,
-      `${mainFolderName}_manual_backup_${dateTime}.zip`
-    );
-
-    console.log(
-      `Creating manual ZIP archive for folder: ${mainFolderName} at path: ${folderPath}`
-    );
-    channel.send(`Creating backup for ${mainFolderName}...`);
-
-    try {
-      // Create a ZIP archive of the folder
-      await createZipArchive(folderPath, zipFilePath);
-      console.log(`Created manual ZIP archive: ${zipFilePath}`);
-      channel.send(`Successfully saved local backup for ${mainFolderName}.`);
-
-      // Handle Google Drive Backup if auth is provided
-      if (drive) {
-        try {
-          const manualFolderName = `${mainFolderName} - Manual Backups`;
-          const res = await drive.files.list({
-            q: `name='${manualFolderName}' and mimeType='application/vnd.google-apps.folder'`,
-            fields: "files(id, name)",
-          });
-
-          const folders = res.data.files;
-          let mainFolderId;
-
-          if (folders.length > 0) {
-            mainFolderId = folders[0].id;
-          } else {
-            const mainFolderMetadata = {
-              name: manualFolderName,
-              mimeType: "application/vnd.google-apps.folder",
-            };
-
-            const mainFolder = await drive.files.create({
-              resource: mainFolderMetadata,
-              fields: "id",
-            });
-            mainFolderId = mainFolder.data.id;
-          }
-
-          // Upload the ZIP file to Google Drive
-          await uploadZipFile(auth, mainFolderId, zipFilePath);
-          console.log(`Manual backup uploaded to Drive for ${mainFolderName}.`);
-          channel.send(
-            `Successfully uploaded manual backup to Drive for ${mainFolderName}.`
-          );
-        } catch (err) {
-          console.error(
-            `Error during Drive manual backup for ${mainFolderName}:`,
-            err
-          );
-          channel.send(
-            `Failed to upload manual backup to Drive for ${mainFolderName}.`
-          );
-        }
-      }
-    } catch (error) {
-      console.error(
-        `Error creating manual backup for ${mainFolderName}:`,
-        error
-      );
-      channel.send(
-        `Error creating backup for ${mainFolderName}. Check console for details.`
-      );
-    }
-  }
-  channel.send("Backup completed");
-}
-
-// Starts the Express server
+// ── Start Server ──
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });

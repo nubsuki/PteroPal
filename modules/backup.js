@@ -199,7 +199,7 @@ async function performManualBackup(channel) {
   const enableDriveBackup = process.env.ENABLE_DRIVE_BACKUP !== "false";
 
   if (enableDriveBackup) {
-    fs.readFile("credentials.json", (err, content) => {
+    fs.readFile(path.join(__dirname, "..", "config", "credentials.json"), (err, content) => {
       if (err) {
         console.log("Error loading client secret file:", err);
         channel.send("Error loading Drive credentials. Check console.");

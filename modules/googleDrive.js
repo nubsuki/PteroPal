@@ -3,7 +3,7 @@ const { google } = require("googleapis");
 const path = require("path");
 
 const SCOPES = ["https://www.googleapis.com/auth/drive.file"];
-const TOKEN_PATH = "token.json";
+const TOKEN_PATH = path.join(__dirname, "..", "config", "token.json");
 
 // Express app reference for OAuth callback route
 let expressApp = null;

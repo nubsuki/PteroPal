@@ -15,10 +15,8 @@ services:
           - MAX_BACKUPS=0 # 0 = Keep all backups. > 0 = Keep latest N backups.
           - SHUTDOWN_BEFORE_BACKUP=true # Set to false to disable server shutdown before backup
         volumes:
-          - /mnt/pteropal/config/token.json:/app/token.json  # Mount the token file
-          - /mnt/pteropal/config/credentials.json:/app/credentials.json  # Mount Google Drive credentials
+          - /mnt/pteropal/config:/app/config  # Mount the config directory containing credentials, token, and folder config
           - /mnt/pterodactyl/volumes:/pterodactyl/volumes  # Mount servers saveFile directory
           - /mnt/pteropal/backups/local_backups:/app/local_backups # Mount local backup directory
           - /mnt/pteropal/backups/manual_backups:/app/manual_backups # Mount manual backup directory
-          - /mnt/pteropal/config/folder_config.json:/app/folder_config.json # Persist folder config from web UI
         restart: unless-stopped

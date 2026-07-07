@@ -81,7 +81,7 @@ async function initiateBackupSequence(getAllServers) {
   const enableDriveBackup = process.env.ENABLE_DRIVE_BACKUP !== "false";
 
   if (enableDriveBackup) {
-    fs.readFile("credentials.json", (err, content) => {
+    fs.readFile(path.join(__dirname, "..", "config", "credentials.json"), (err, content) => {
       if (err) return console.log("Error loading client secret file:", err);
       googleDrive.authorize(JSON.parse(content), backup.performBackup);
     });

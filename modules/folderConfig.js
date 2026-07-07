@@ -1,7 +1,7 @@
 const fs = require("fs-extra");
 const path = require("path");
 
-const CONFIG_PATH = path.join(__dirname, "..", "folder_config.json");
+const CONFIG_PATH = path.join(__dirname, "..", "config", "folder_config.json");
 
 let folders = [];
 
@@ -10,6 +10,7 @@ let folders = [];
  */
 function loadConfig() {
   try {
+    fs.ensureDirSync(path.dirname(CONFIG_PATH));
     if (fs.existsSync(CONFIG_PATH)) {
       const data = fs.readJsonSync(CONFIG_PATH);
       folders = data.folders || [];

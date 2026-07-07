@@ -5,24 +5,14 @@ const path = require("path");
 const SCOPES = ["https://www.googleapis.com/auth/drive.file"];
 const TOKEN_PATH = path.join(__dirname, "..", "config", "token.json");
 
-// Express app reference for OAuth callback route
 let expressApp = null;
 
-/**
- * Set the Express app instance for OAuth route registration
- * Must be called before authorize() if first-time auth is needed
- * @param {Object} app - Express app instance
- */
+// Set Express app for OAuth callback routing
 function setExpressApp(app) {
   expressApp = app;
 }
 
-/**
- * Authorize with Google Drive API
- * Reads saved token or initiates OAuth flow
- * @param {Object} credentials - OAuth2 credentials from credentials.json
- * @param {Function} callback - Called with authorized OAuth2 client
- */
+// Authorize with Google Drive API
 function authorize(credentials, callback) {
   const { client_secret, client_id, redirect_uris } = credentials.web;
   const oAuth2Client = new google.auth.OAuth2(
@@ -38,10 +28,7 @@ function authorize(credentials, callback) {
   });
 }
 
-/**
- * Get a new access token via OAuth2 flow
- * Registers /auth route on Express app for the callback
- */
+// Request access token via browser OAuth
 function getAccessToken(oAuth2Client, callback) {
   const authUrl = oAuth2Client.generateAuthUrl({
     access_type: "offline",
@@ -71,12 +58,7 @@ function getAccessToken(oAuth2Client, callback) {
   }
 }
 
-/**
- * Upload a ZIP file to Google Drive
- * @param {Object} auth - Authorized OAuth2 client
- * @param {string} folderId - Google Drive folder ID to upload into
- * @param {string} zipFilePath - Local path to the ZIP file
- */
+// Upload file to Google Drive
 async function uploadZipFile(auth, folderId, zipFilePath) {
   const drive = google.drive({ version: "v3", auth });
   const fileMetadata = {
@@ -100,12 +82,7 @@ async function uploadZipFile(auth, folderId, zipFilePath) {
   }
 }
 
-/**
- * Clean up old backups from a Google Drive folder
- * @param {Object} auth - Authorized OAuth2 client
- * @param {string} folderId - Google Drive folder ID to clean
- * @param {number} maxBackups - Maximum number of backups to keep
- */
+// Delete old backups in Drive
 async function cleanupOldBackups(auth, folderId, maxBackups) {
   const drive = google.drive({ version: "v3", auth });
   try {

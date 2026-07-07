@@ -14,11 +14,7 @@ const MANUAL_BACKUP_DIR = path.join(__dirname, "..", "manual_backups");
 fs.ensureDirSync(BACKUP_DIR);
 fs.ensureDirSync(MANUAL_BACKUP_DIR);
 
-/**
- * Create a ZIP archive of the specified folder
- * @param {string} folderPath - Path to the folder to archive
- * @param {string} zipFilePath - Destination path for the ZIP file
- */
+// Create a ZIP archive of a folder
 async function createZipArchive(folderPath, zipFilePath) {
   return new Promise((resolve, reject) => {
     const output = fs.createWriteStream(zipFilePath);
@@ -28,7 +24,7 @@ async function createZipArchive(folderPath, zipFilePath) {
 
     output.on("close", () => {
       console.log(
-        `Created ZIP archive: ${zipFilePath} (${archive.pointer()} total bytes)`
+        `Created ZIP archive: ${zipFilePath} (${archive.pointer()} total bytes)`,
       );
       resolve();
     });
@@ -44,11 +40,7 @@ async function createZipArchive(folderPath, zipFilePath) {
   });
 }
 
-/**
- * Process scheduled backups for all configured folders
- * Handles both local and Google Drive backups
- * @param {Object|null} auth - Google OAuth2 client, or null for local-only backup
- */
+// Process scheduled backups for all folders (local & Google Drive)
 async function processBackups(auth) {
   const folderNames = folderConfig.getFolderNames();
   const folderPaths = folderConfig.getFolderPaths();
@@ -63,11 +55,11 @@ async function processBackups(auth) {
     const dateTime = new Date().toISOString().replace(/[:.]/g, "-");
     const zipFilePath = path.join(
       BACKUP_DIR,
-      `${mainFolderName}_backup_${dateTime}.zip`
+      `${mainFolderName}_backup_${dateTime}.zip`,
     );
 
     console.log(
-      `Creating ZIP archive for folder: ${mainFolderName} at path: ${folderPath}`
+      `Creating ZIP archive for folder: ${mainFolderName} at path: ${folderPath}`,
     );
 
     // Create a ZIP archive of the folder
@@ -116,7 +108,7 @@ async function processBackups(auth) {
     }
 
     console.log(
-      `Backup process completed for ${mainFolderName}. File saved at: ${zipFilePath}`
+      `Backup process completed for ${mainFolderName}. File saved at: ${zipFilePath}`,
     );
 
     // Cleanup local backups
@@ -128,12 +120,7 @@ async function processBackups(auth) {
   }
 }
 
-/**
- * Clean up old local backups for a specific folder
- * @param {string} backupDir - Directory containing backups
- * @param {string} folderName - Folder name prefix to match
- * @param {number} maxBackups - Maximum backups to keep
- */
+// Clean up old local backups for a specific folder prefix
 async function cleanupLocalBackups(backupDir, folderName, maxBackups) {
   try {
     const files = await fs.readdir(backupDir);
@@ -147,13 +134,12 @@ async function cleanupLocalBackups(backupDir, folderName, maxBackups) {
       }
     }
 
-    // Sort by creation time descending (newest first)
     backupFiles.sort((a, b) => b.ctime - a.ctime);
 
     if (backupFiles.length > maxBackups) {
       const filesToDelete = backupFiles.slice(maxBackups);
       console.log(
-        `Cleaning up ${filesToDelete.length} old local backups for ${folderName}...`
+        `Cleaning up ${filesToDelete.length} old local backups for ${folderName}...`,
       );
       for (const file of filesToDelete) {
         await fs.remove(file.path);
@@ -165,11 +151,7 @@ async function cleanupLocalBackups(backupDir, folderName, maxBackups) {
   }
 }
 
-/**
- * Check if a directory is accessible
- * @param {string} dirPath - Path to check
- * @returns {boolean} True if accessible
- */
+// Check if folder exists and is accessible
 async function checkDirectoryAccessible(dirPath) {
   try {
     await fs.access(dirPath);
@@ -180,45 +162,38 @@ async function checkDirectoryAccessible(dirPath) {
   }
 }
 
-/**
- * Perform scheduled backup
- * @param {Object|null} auth - Google OAuth2 client
- */
+// Perform scheduled backup orchestration
 async function performBackup(auth) {
   console.log("Performing backup for all folders...");
   await processBackups(auth);
 }
 
-/**
- * Perform manual backup triggered via Discord command
- * @param {Object} channel - Discord channel to send status messages to
- */
+// Trigger manual backup from Discord command
 async function performManualBackup(channel) {
   channel.send("Manual backup triggered");
 
   const enableDriveBackup = process.env.ENABLE_DRIVE_BACKUP !== "false";
 
   if (enableDriveBackup) {
-    fs.readFile(path.join(__dirname, "..", "config", "credentials.json"), (err, content) => {
-      if (err) {
-        console.log("Error loading client secret file:", err);
-        channel.send("Error loading Drive credentials. Check console.");
-        return;
-      }
-      googleDrive.authorize(JSON.parse(content), (auth) =>
-        executeManualBackup(auth, channel)
-      );
-    });
+    fs.readFile(
+      path.join(__dirname, "..", "config", "credentials.json"),
+      (err, content) => {
+        if (err) {
+          console.log("Error loading client secret file:", err);
+          channel.send("Error loading Drive credentials. Check console.");
+          return;
+        }
+        googleDrive.authorize(JSON.parse(content), (auth) =>
+          executeManualBackup(auth, channel),
+        );
+      },
+    );
   } else {
     await executeManualBackup(null, channel);
   }
 }
 
-/**
- * Execute manual backup for all configured folders
- * @param {Object|null} auth - Google OAuth2 client
- * @param {Object} channel - Discord channel for status messages
- */
+// Execute manual backup sequence
 async function executeManualBackup(auth, channel) {
   console.log("Starting manual backup execution...");
   const folderNames = folderConfig.getFolderNames();
@@ -234,11 +209,11 @@ async function executeManualBackup(auth, channel) {
     const dateTime = new Date().toISOString().replace(/[:.]/g, "-");
     const zipFilePath = path.join(
       MANUAL_BACKUP_DIR,
-      `${mainFolderName}_manual_backup_${dateTime}.zip`
+      `${mainFolderName}_manual_backup_${dateTime}.zip`,
     );
 
     console.log(
-      `Creating manual ZIP archive for folder: ${mainFolderName} at path: ${folderPath}`
+      `Creating manual ZIP archive for folder: ${mainFolderName} at path: ${folderPath}`,
     );
     channel.send(`Creating backup for ${mainFolderName}...`);
 
@@ -277,29 +252,27 @@ async function executeManualBackup(auth, channel) {
 
           // Upload the ZIP file to Google Drive
           await googleDrive.uploadZipFile(auth, mainFolderId, zipFilePath);
-          console.log(
-            `Manual backup uploaded to Drive for ${mainFolderName}.`
-          );
+          console.log(`Manual backup uploaded to Drive for ${mainFolderName}.`);
           channel.send(
-            `Successfully uploaded manual backup to Drive for ${mainFolderName}.`
+            `Successfully uploaded manual backup to Drive for ${mainFolderName}.`,
           );
         } catch (err) {
           console.error(
             `Error during Drive manual backup for ${mainFolderName}:`,
-            err
+            err,
           );
           channel.send(
-            `Failed to upload manual backup to Drive for ${mainFolderName}.`
+            `Failed to upload manual backup to Drive for ${mainFolderName}.`,
           );
         }
       }
     } catch (error) {
       console.error(
         `Error creating manual backup for ${mainFolderName}:`,
-        error
+        error,
       );
       channel.send(
-        `Error creating backup for ${mainFolderName}. Check console for details.`
+        `Error creating backup for ${mainFolderName}. Check console for details.`,
       );
     }
   }

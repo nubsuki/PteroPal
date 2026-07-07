@@ -6,20 +6,14 @@ const backup = require("../modules/backup");
 
 const router = express.Router();
 
-/**
- * Initialize API routes with dependencies
- * @param {Object} deps - Dependencies
- * @param {Function} deps.getConfiguredPanels - Returns configured panel modules
- * @param {Function} deps.getAllServers - Returns all servers from all panels
- * @returns {Router} Express router with all API routes
- */
+// Initialize API routes
 function init({ getConfiguredPanels, getAllServers }) {
-  // GET /api/folders — Get all configured folders
+  // Get all folders
   router.get("/folders", (req, res) => {
     res.json({ folders: folderConfig.getFolders() });
   });
 
-  // POST /api/folders — Add a new folder
+  // Add folder
   router.post("/folders", express.json(), (req, res) => {
     const { name, path: folderPath } = req.body;
 
@@ -38,7 +32,7 @@ function init({ getConfiguredPanels, getAllServers }) {
     res.json({ success: true, folders });
   });
 
-  // DELETE /api/folders/:index — Remove a folder by index
+  // Delete folder
   router.delete("/folders/:index", (req, res) => {
     const index = parseInt(req.params.index);
 
@@ -54,7 +48,7 @@ function init({ getConfiguredPanels, getAllServers }) {
     }
   });
 
-  // GET /api/browse — Browse filesystem directories
+  // Browse filesystem directories
   router.get("/browse", async (req, res) => {
     const targetPath = req.query.path || "/";
 
@@ -86,7 +80,7 @@ function init({ getConfiguredPanels, getAllServers }) {
     }
   });
 
-  // POST /api/test/folders — Test accessibility of all configured folders
+  // Test folder accessibility
   router.post("/test/folders", async (req, res) => {
     const folders = folderConfig.getFolders();
     const results = [];
@@ -104,7 +98,7 @@ function init({ getConfiguredPanels, getAllServers }) {
     res.json({ results });
   });
 
-  // POST /api/test/panels — Test connectivity to all configured panels
+  // Test panel connectivity
   router.post("/test/panels", async (req, res) => {
     const panels = getConfiguredPanels();
     const results = [];
@@ -128,7 +122,6 @@ function init({ getConfiguredPanels, getAllServers }) {
       }
     }
 
-    // If no panels configured
     if (panels.length === 0) {
       results.push({
         name: "No panels configured",

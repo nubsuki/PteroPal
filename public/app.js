@@ -2,8 +2,7 @@
 let currentBrowsePath = "/";
 let selectedPath = "/";
 
-// ── Bootstrap Icon Helpers ──
-
+// Bootstrap Icons
 const icons = {
   folder: `<i class="bi bi-folder-fill"></i>`,
   folderOpen: `<i class="bi bi-folder2-open"></i>`,
@@ -14,17 +13,12 @@ const icons = {
   dirItem: `<i class="bi bi-folder"></i>`,
 };
 
-// ── Initialization ──
-
+// Initialize
 document.addEventListener("DOMContentLoaded", () => {
   loadFolders();
 });
 
-// ── Folder CRUD ──
-
-/**
- * Load and render the folder list from the API
- */
+// Load configured folders from API
 async function loadFolders() {
   try {
     const res = await fetch("/api/folders");
@@ -36,9 +30,7 @@ async function loadFolders() {
   }
 }
 
-/**
- * Render the folder list in the UI
- */
+// Render folders list
 function renderFolders(folders) {
   const listEl = document.getElementById("folderList");
   const emptyEl = document.getElementById("emptyState");
@@ -70,9 +62,7 @@ function renderFolders(folders) {
     .join("");
 }
 
-/**
- * Delete a folder by index
- */
+// Delete folder entry
 async function deleteFolder(index) {
   try {
     const res = await fetch(`/api/folders/${index}`, { method: "DELETE" });
@@ -81,7 +71,6 @@ async function deleteFolder(index) {
     if (res.ok) {
       renderFolders(data.folders);
       showToast(`Removed "${data.removed.name}"`, "success");
-      // Hide test results when folders change
       hideTestResults("folderTestResults");
     } else {
       showToast(data.error || "Failed to remove folder", "error");
@@ -92,9 +81,7 @@ async function deleteFolder(index) {
   }
 }
 
-/**
- * Add a folder (called from the modal)
- */
+// Add folder entry
 async function addFolder() {
   const nameInput = document.getElementById("folderName");
   const name = nameInput.value.trim();
@@ -126,7 +113,6 @@ async function addFolder() {
       renderFolders(data.folders);
       closeBrowserModal();
       showToast(`Added "${name}"`, "success");
-      // Hide test results when folders change
       hideTestResults("folderTestResults");
     } else {
       showToast(data.error || "Failed to add folder", "error");
@@ -139,11 +125,7 @@ async function addFolder() {
   }
 }
 
-// ── Folder Browser Modal ──
-
-/**
- * Open the folder browser modal
- */
+// Open directory browser modal
 function openBrowserModal() {
   const modal = document.getElementById("browserModal");
   modal.style.display = "flex";
@@ -152,18 +134,14 @@ function openBrowserModal() {
   document.getElementById("selectedPath").textContent = "/";
   browseTo("/");
 
-  // Close on overlay click
   modal.onclick = (e) => {
     if (e.target === modal) closeBrowserModal();
   };
 
-  // Close on Escape key
   document.addEventListener("keydown", handleModalEscape);
 }
 
-/**
- * Close the folder browser modal
- */
+// Close directory browser modal
 function closeBrowserModal() {
   const modal = document.getElementById("browserModal");
   modal.style.display = "none";
@@ -174,9 +152,7 @@ function handleModalEscape(e) {
   if (e.key === "Escape") closeBrowserModal();
 }
 
-/**
- * Browse to a specific directory path
- */
+// Fetch subdirectories at target path
 async function browseTo(path) {
   currentBrowsePath = path;
   selectedPath = path;
@@ -217,9 +193,7 @@ async function browseTo(path) {
   }
 }
 
-/**
- * Render the breadcrumb navigation
- */
+// Render path breadcrumbs
 function renderBreadcrumb(currentPath) {
   const breadcrumbEl = document.getElementById("breadcrumb");
   const parts = currentPath.split("/").filter(Boolean);
@@ -235,13 +209,10 @@ function renderBreadcrumb(currentPath) {
   });
 
   breadcrumbEl.innerHTML = html;
-  // Auto-scroll to end
   breadcrumbEl.scrollLeft = breadcrumbEl.scrollWidth;
 }
 
-/**
- * Render the directory listing
- */
+// Render subdirectories
 function renderDirectories(directories, parentPath) {
   const listEl = document.getElementById("directoryList");
 
@@ -267,11 +238,7 @@ function renderDirectories(directories, parentPath) {
     .join("");
 }
 
-// ── Test Functions ──
-
-/**
- * Test folder access for all configured folders
- */
+// Test folder accessibility
 async function testFolderAccess() {
   const btn = document.getElementById("testFoldersBtn");
   const resultsEl = document.getElementById("folderTestResults");
@@ -321,9 +288,7 @@ async function testFolderAccess() {
   }
 }
 
-/**
- * Test panel API connections
- */
+// Test panel connectivity
 async function testPanelConnections() {
   const btn = document.getElementById("testPanelsBtn");
   const resultsEl = document.getElementById("panelTestResults");
@@ -369,44 +334,32 @@ async function testPanelConnections() {
   }
 }
 
-// ── Toast Notifications ──
-
+// Show toast notification
 let toastTimeout = null;
-
-/**
- * Show a toast notification
- * @param {string} message - Message to display
- * @param {string} type - 'success' or 'error'
- */
 function showToast(message, type = "success") {
   const toast = document.getElementById("toast");
   const msgEl = document.getElementById("toastMessage");
   const iconEl = document.getElementById("toastIcon");
 
-  // Clear existing timeout
   if (toastTimeout) {
     clearTimeout(toastTimeout);
     toast.classList.remove("show");
   }
 
-  // Set content
   msgEl.textContent = message;
   iconEl.innerHTML = type === "success" ? "✅" : "❌";
   toast.className = `toast ${type}`;
 
-  // Show
   requestAnimationFrame(() => {
     toast.classList.add("show");
   });
 
-  // Auto-hide after 3 seconds
   toastTimeout = setTimeout(() => {
     toast.classList.remove("show");
   }, 3000);
 }
 
-// ── Utilities ──
-
+// Utility Helpers
 function hideTestResults(elementId) {
   const el = document.getElementById(elementId);
   if (el) el.style.display = "none";

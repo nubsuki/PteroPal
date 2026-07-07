@@ -3,10 +3,7 @@ const backup = require("./backup");
 const folderConfig = require("./folderConfig");
 const googleDrive = require("./googleDrive");
 
-/**
- * Check if current time matches the configured backup time
- * @returns {boolean} True if it's backup time
- */
+// Check if current time is scheduled backup time
 function isTimeBackup() {
   const now = new Date();
   const options = {
@@ -19,10 +16,7 @@ function isTimeBackup() {
   return timeInConfiguredZone === process.env.BACKUP_TIME;
 }
 
-/**
- * Shutdown a server using its panel module
- * @param {Object} server - Server object with panelModule
- */
+// Shut down server
 async function shutdownServer(server) {
   try {
     await server.panelModule.sendPowerAction(server.id, "stop");
@@ -37,24 +31,18 @@ async function shutdownServer(server) {
   }
 }
 
-/**
- * Orchestrate the shutdown, wait, and backup process
- * @param {Function} getAllServers - Function to get all servers
- */
+// Orchestrate server shutdown, offline waiting, and backup execution
 async function initiateBackupSequence(getAllServers) {
   console.log("Starting backup process...");
 
-  // Check if shutdown is enabled (defaults to true)
   const shouldShutdown = process.env.SHUTDOWN_BEFORE_BACKUP !== "false";
 
   if (shouldShutdown) {
-    // Shutdown all servers from all configured panels
     const servers = await getAllServers();
     for (const server of servers) {
       await shutdownServer(server);
     }
 
-    // Wait until all servers are offline
     console.log("Waiting for servers to go offline...");
     let allOffline = false;
     while (!allOffline) {
@@ -93,13 +81,8 @@ async function initiateBackupSequence(getAllServers) {
   }
 }
 
-/**
- * Initialize the scheduler with dependencies
- * @param {Object} deps - Dependencies
- * @param {Function} deps.getAllServers - Function to get all servers
- */
+// Start interval checks for server status and backup schedule
 function init({ getAllServers }) {
-  // Check time and perform scheduled backup if it's time
   async function checkTimeAndPerformActions() {
     if (isTimeBackup()) {
       console.log("Time for scheduled backup.");
@@ -109,13 +92,12 @@ function init({ getAllServers }) {
     }
   }
 
-  // Periodic check every 60 seconds
+  // Periodic check (every 1 minute)
   setInterval(async () => {
     console.log("-----------------------------------");
     console.log("Performing automatic server check");
     console.log(new Date().toLocaleString());
 
-    // Check directory accessibility for all configured folders
     const folderPaths = folderConfig.getFolderPaths();
 
     for (const folderPath of folderPaths) {
@@ -131,9 +113,8 @@ function init({ getAllServers }) {
     console.log("Automatic check completed");
     console.log("-----------------------------------");
 
-    // Trigger time-based actions
     await checkTimeAndPerformActions();
-  }, 60000); // 1 minute in milliseconds
+  }, 60000);
 
   console.log("[Scheduler] Started. Checking every 60 seconds.");
 }

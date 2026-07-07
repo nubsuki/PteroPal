@@ -10,21 +10,13 @@ const client = new Client({
 
 const DISCORD_PREFIX = process.env.DISCORD_PREFIX || ".";
 
-/**
- * Initialize Discord bot with required dependencies
- * @param {Object} deps - Dependencies
- * @param {Function} deps.getAllServers - Returns all servers from all panels
- * @param {Function} deps.getConfiguredPanels - Returns configured panel modules
- * @param {Function} deps.performManualBackup - Triggers a manual backup
- */
+// Initialize Discord bot
 function init({ getAllServers, getConfiguredPanels, performManualBackup }) {
-  /**
-   * Starts a specified server using its panel module
-   */
+  // Start server
   async function startServer(server, channel) {
     const { id: serverId, name: serverName, panelModule } = server;
     console.log(
-      `Starting server: ${serverName} (ID: ${serverId}) on ${panelModule.panelName}`
+      `Starting server: ${serverName} (ID: ${serverId}) on ${panelModule.panelName}`,
     );
     try {
       const initialStatus = await panelModule.getServerStatus(serverId);
@@ -32,7 +24,7 @@ function init({ getAllServers, getConfiguredPanels, performManualBackup }) {
 
       if (initialStatus === "running") {
         channel.send(
-          `Server "${serverName}" (${panelModule.panelName}) is already running!`
+          `Server "${serverName}" (${panelModule.panelName}) is already running!`,
         );
         return;
       }
@@ -40,10 +32,9 @@ function init({ getAllServers, getConfiguredPanels, performManualBackup }) {
       await panelModule.sendPowerAction(serverId, "start");
       console.log(`Start command sent for ${serverName}`);
       channel.send(
-        `Server "${serverName}" (${panelModule.panelName}) start command sent. Waiting for it to come online...`
+        `Server "${serverName}" (${panelModule.panelName}) start command sent. Waiting for it to come online...`,
       );
 
-      // Poll for status
       const maxRetries = 60; // 5 minutes (60 * 5s)
       let retries = 0;
 
@@ -51,17 +42,17 @@ function init({ getAllServers, getConfiguredPanels, performManualBackup }) {
         retries++;
         const currentStatus = await panelModule.getServerStatus(serverId);
         console.log(
-          `Checking status for ${serverName}: ${currentStatus} (Attempt ${retries}/${maxRetries})`
+          `Checking status for ${serverName}: ${currentStatus} (Attempt ${retries}/${maxRetries})`,
         );
 
         if (currentStatus === "running") {
           channel.send(
-            `Server "${serverName}" (${panelModule.panelName}) is now ONLINE!`
+            `Server "${serverName}" (${panelModule.panelName}) is now ONLINE!`,
           );
           clearInterval(pollInterval);
         } else if (retries >= maxRetries) {
           channel.send(
-            `Server "${serverName}" (${panelModule.panelName}) took too long to start. Please check the panel.`
+            `Server "${serverName}" (${panelModule.panelName}) took too long to start. Please check the panel.`,
           );
           clearInterval(pollInterval);
         }
@@ -69,14 +60,12 @@ function init({ getAllServers, getConfiguredPanels, performManualBackup }) {
     } catch (error) {
       console.error(`Error starting server ${serverName}:`, error.message);
       channel.send(
-        `Failed to start server "${serverName}" (${panelModule.panelName}). Check console for details.`
+        `Failed to start server "${serverName}" (${panelModule.panelName}). Check console for details.`,
       );
     }
   }
 
-  /**
-   * Stops a specified server using its panel module
-   */
+  // Stop server
   async function stopServer(server, channel) {
     const { id: serverId, name: serverName, panelModule } = server;
     try {
@@ -85,7 +74,7 @@ function init({ getAllServers, getConfiguredPanels, performManualBackup }) {
 
       if (initialStatus === "offline") {
         channel.send(
-          `Server "${serverName}" (${panelModule.panelName}) is already stopped!`
+          `Server "${serverName}" (${panelModule.panelName}) is already stopped!`,
         );
         return;
       }
@@ -93,10 +82,9 @@ function init({ getAllServers, getConfiguredPanels, performManualBackup }) {
       await panelModule.sendPowerAction(serverId, "stop");
 
       channel.send(
-        `Server "${serverName}" (${panelModule.panelName}) stop command sent. Waiting for it to go offline...`
+        `Server "${serverName}" (${panelModule.panelName}) stop command sent. Waiting for it to go offline...`,
       );
 
-      // Poll for status
       const maxRetries = 60; // 5 minutes (60 * 5s)
       let retries = 0;
 
@@ -104,17 +92,17 @@ function init({ getAllServers, getConfiguredPanels, performManualBackup }) {
         retries++;
         const currentStatus = await panelModule.getServerStatus(serverId);
         console.log(
-          `Checking status for ${serverName}: ${currentStatus} (Attempt ${retries}/${maxRetries})`
+          `Checking status for ${serverName}: ${currentStatus} (Attempt ${retries}/${maxRetries})`,
         );
 
         if (currentStatus === "offline") {
           channel.send(
-            `Server "${serverName}" (${panelModule.panelName}) is now OFFLINE!`
+            `Server "${serverName}" (${panelModule.panelName}) is now OFFLINE!`,
           );
           clearInterval(pollInterval);
         } else if (retries >= maxRetries) {
           channel.send(
-            `Server "${serverName}" (${panelModule.panelName}) took too long to stop. Please check the panel.`
+            `Server "${serverName}" (${panelModule.panelName}) took too long to stop. Please check the panel.`,
           );
           clearInterval(pollInterval);
         }
@@ -122,12 +110,12 @@ function init({ getAllServers, getConfiguredPanels, performManualBackup }) {
     } catch (error) {
       console.error(`Error stopping server ${serverName}:`, error.message);
       channel.send(
-        `Failed to stop server "${serverName}" (${panelModule.panelName}). Check console for details.`
+        `Failed to stop server "${serverName}" (${panelModule.panelName}). Check console for details.`,
       );
     }
   }
 
-  // Handles incoming messages and commands from Discord
+  // Message handler
   client.on("messageCreate", async (message) => {
     if (!message.content.startsWith(DISCORD_PREFIX)) return;
 
@@ -140,11 +128,10 @@ function init({ getAllServers, getConfiguredPanels, performManualBackup }) {
         const servers = await getAllServers();
         if (servers.length === 0) {
           return message.channel.send(
-            "No servers available or there was an error fetching servers."
+            "No servers available or there was an error fetching servers.",
           );
         }
 
-        // Group servers by panel
         let serverList = "";
         let currentPanel = "";
         servers.forEach((server, index) => {
@@ -158,17 +145,15 @@ function init({ getAllServers, getConfiguredPanels, performManualBackup }) {
         });
 
         await message.channel.send(
-          `Available servers:${serverList}\nUse ${DISCORD_PREFIX}start <number> to start a server.\nUse ${DISCORD_PREFIX}stop <number> to stop a server.\nUse ${DISCORD_PREFIX}backup to trigger a manual backup.`
+          `Available servers:${serverList}\nUse ${DISCORD_PREFIX}start <number> to start a server.\nUse ${DISCORD_PREFIX}stop <number> to stop a server.\nUse ${DISCORD_PREFIX}backup to trigger a manual backup.`,
         );
       } catch (error) {
-        message.channel.send(
-          "An error occurred while processing the command."
-        );
+        message.channel.send("An error occurred while processing the command.");
       }
     }
 
     if (command === "start" && args[1]) {
-      const serverIndex = parseInt(args[1]) - 1; // Convert to 0-based index
+      const serverIndex = parseInt(args[1]) - 1;
       const servers = await getAllServers();
 
       if (serverIndex < 0 || serverIndex >= servers.length) {
@@ -180,7 +165,7 @@ function init({ getAllServers, getConfiguredPanels, performManualBackup }) {
     }
 
     if (command === "stop" && args[1]) {
-      const serverIndex = parseInt(args[1]) - 1; // Convert to 0-based index
+      const serverIndex = parseInt(args[1]) - 1;
       const servers = await getAllServers();
 
       if (serverIndex < 0 || serverIndex >= servers.length) {
@@ -233,11 +218,10 @@ GitHub: [PteroPal](https://github.com/nubsuki/PteroPal).`;
     console.log(`Logged in as ${client.user.tag}!`);
     const panels = getConfiguredPanels();
     console.log(
-      `Active panels: ${panels.map((p) => p.panelName).join(", ") || "None"}`
+      `Active panels: ${panels.map((p) => p.panelName).join(", ") || "None"}`,
     );
   });
 
-  // Login only if token is provided
   if (process.env.DISCORD_TOKEN) {
     client.login(process.env.DISCORD_TOKEN);
   } else {

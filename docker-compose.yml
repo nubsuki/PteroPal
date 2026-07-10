@@ -1,22 +1,33 @@
 services:
-      pteropal:
-        image: ghcr.io/nubsuki/pteropal:latest
-        container_name: pteropal
-        ports:
-          - "3000:3000"
-        environment:
-          - DISCORD_TOKEN=# Discord bot token
-          - DISCORD_PREFIX=. # Discord bot prefix (default: .)
-          - ENABLE_DRIVE_BACKUP=true # true = Backup to Google Drive and local. false = Local backup only.
-          - PTERODACTYL_API_URL=# Pterodactyl API URL
-          - PTERODACTYL_API_KEY=# Pterodactyl API key
-          - TZ=Asia/Colombo
-          - BACKUP_TIME= # Time for backup 24h format (e.g., 14:30)
-          - MAX_BACKUPS=0 # 0 = Keep all backups. > 0 = Keep latest N backups.
-          - SHUTDOWN_BEFORE_BACKUP=true # Set to false to disable server shutdown before backup
-        volumes:
-          - /mnt/pteropal/config:/app/config  # Mount the config directory containing credentials, token, and folder config
-          - /mnt/pterodactyl/volumes:/pterodactyl/volumes  # Mount servers saveFile directory
-          - /mnt/pteropal/backups/local_backups:/app/local_backups # Mount local backup directory
-          - /mnt/pteropal/backups/manual_backups:/app/manual_backups # Mount manual backup directory
-        restart: unless-stopped
+  pteropal:
+    image: ghcr.io/nubsuki/pteropal:latest
+    container_name: pteropal
+    ports:
+      - "3000:3000"
+    environment:
+      #              DISCORD BOT
+      - DISCORD_TOKEN= # Discord bot token
+      - DISCORD_PREFIX= # Discord bot prefix (default: .)
+      - DISCORD_NOTIFY_CHANNEL= # Optional: Channel ID to send system alerts (e.g. Drive disconnected warnings)
+      
+      #             PANEL API KEYS
+      - PTERODACTYL_API_URL= # Pterodactyl API URL
+      - PTERODACTYL_API_KEY= # Pterodactyl API key
+      - CRAFTY_API_URL= # CRAFTY APP URL
+      - CRAFTY_API_KEY= # CRAFTY API KEY
+      
+      #           BACKUP CONFIGURATION
+      - TZ=Asia/Colombo # Your timezone
+      - BACKUP_TIME=05:00 # Time for backup 24h format (e.g., 14:30)
+      - MAX_BACKUPS=10 # 0 = Keep all backups. > 0 = Keep latest N backups.
+      - SHUTDOWN_BEFORE_BACKUP=true # Set to false to disable server shutdown before backup
+      
+      #         GOOGLE DRIVE INTEGRATION
+      - ENABLE_DRIVE_BACKUP=true # true = Backup to Google Drive and local. false = Local backup only.
+    volumes:
+      - /mnt/pteropal/config:/app/config # Mount the config directory containing credentials, token, and folder config
+      - /mnt/pterodactyl/volumes:/pterodactyl/volumes # Mount servers saveFile directory
+      - /mnt/crafty/volumes:/crafty/volumes
+      - /mnt/pteropal/backups/local_backups:/app/local_backups # Mount local backup directory
+      - /mnt/pteropal/backups/manual_backups:/app/manual_backups # Mount manual backup directory
+    restart: unless-stopped

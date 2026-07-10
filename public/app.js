@@ -16,6 +16,7 @@ const icons = {
 // Initialize
 document.addEventListener("DOMContentLoaded", () => {
   loadFolders();
+  loadDriveStatus();
 });
 
 // Load configured folders from API
@@ -373,4 +374,225 @@ function escapeHtml(str) {
 
 function escapeAttr(str) {
   return str.replace(/'/g, "\\'").replace(/"/g, "&quot;");
+}
+
+// Google Drive
+
+let driveConnectPollInterval = null;
+
+// Load and render Drive connection status
+async function loadDriveStatus() {
+  try {
+    const res = await fetch("/api/drive/status");
+    const data = await res.json();
+    renderDriveStatus(data);
+  } catch (err) {
+    console.error("Failed to load Drive status:", err);
+  }
+}
+
+// Render Drive status UI
+function renderDriveStatus(data) {
+  const section = document.getElementById("driveSection");
+  const dot = document.getElementById("driveStatusDot");
+  const label = document.getElementById("driveStatusLabel");
+  const reason = document.getElementById("driveStatusReason");
+  const actions = document.getElementById("driveActions");
+
+  if (!data.enabled) {
+    section.classList.add("section-disabled");
+    dot.className = "drive-status-dot dot-disabled";
+    label.textContent = "Disabled";
+    reason.textContent =
+      "Set ENABLE_DRIVE_BACKUP=true in your .env to enable Google Drive backups.";
+    actions.innerHTML = "";
+    return;
+  }
+
+  section.classList.remove("section-disabled");
+
+  if (!data.hasCredentials) {
+    dot.className = "drive-status-dot dot-disconnected";
+    label.textContent = "Missing Credentials";
+    reason.textContent =
+      data.reason || "Upload your Google Cloud credentials.json file to begin.";
+    actions.innerHTML = `
+      <button class="btn btn-primary" onclick="document.getElementById('credentialsUploadInput').click()">
+        <i class="bi bi-file-earmark-arrow-up"></i>
+        Upload credentials.json
+      </button>
+    `;
+  } else if (!data.connected) {
+    dot.className = "drive-status-dot dot-disconnected";
+    label.textContent = "Not Connected";
+    reason.textContent =
+      data.reason || "Authorize Google Drive to enable cloud backups.";
+    actions.innerHTML = `
+      <button class="btn btn-danger-outline" onclick="removeCredentials()" title="Remove credentials.json" style="margin-right: 10px;">
+        <i class="bi bi-trash"></i>
+      </button>
+      <button class="btn btn-primary" id="driveConnectBtn" onclick="connectDrive()">
+        <i class="bi bi-cloud-arrow-up"></i>
+        Connect Google Drive
+      </button>
+    `;
+  } else {
+    dot.className = "drive-status-dot dot-connected";
+    label.textContent = "Connected";
+    reason.textContent = "Google Drive is authorized and ready for backups.";
+    actions.innerHTML = `
+      <button class="btn btn-outline" id="driveTestBtn" onclick="testDriveBackup()" style="margin-right: 10px;">
+        <i class="bi bi-play-circle"></i>
+        Test Backup
+      </button>
+      <button class="btn btn-danger-outline" id="driveDisconnectBtn" onclick="disconnectDrive()">
+        <i class="bi bi-cloud-slash"></i>
+        Disconnect
+      </button>
+    `;
+  }
+}
+
+// Handle credentials.json upload
+function handleCredentialsUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const json = JSON.parse(e.target.result);
+      if (!json.web || !json.web.client_id) {
+        showToast("Invalid credentials.json format.", "error");
+        return;
+      }
+
+      const res = await fetch("/api/drive/credentials", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(json),
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        showToast("Credentials uploaded successfully", "success");
+        await loadDriveStatus();
+      } else {
+        showToast(data.error || "Failed to upload credentials", "error");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Error parsing JSON file.", "error");
+    } finally {
+      // Reset input so the same file can be uploaded again if needed
+      event.target.value = "";
+    }
+  };
+  reader.readAsText(file);
+}
+
+// Remove credentials.json
+async function removeCredentials() {
+  if (!confirm("Are you sure you want to remove the credentials.json file?"))
+    return;
+  try {
+    const res = await fetch("/api/drive/credentials", { method: "DELETE" });
+    const data = await res.json();
+    if (res.ok) {
+      showToast("Credentials removed", "success");
+      await loadDriveStatus();
+    } else {
+      showToast(data.error || "Failed to remove credentials", "error");
+    }
+  } catch (err) {
+    console.error(err);
+    showToast("Failed to remove credentials", "error");
+  }
+}
+
+// Open OAuth URL and poll for connection
+async function connectDrive() {
+  try {
+    const res = await fetch("/api/drive/auth-url");
+    const data = await res.json();
+
+    if (!res.ok) {
+      showToast(data.error || "Could not generate auth URL", "error");
+      return;
+    }
+
+    // Open the auth URL in a new tab
+    window.open(data.url, "_blank");
+    showToast("Complete the Google authorization in the new tab...", "success");
+
+    // Poll every 3 seconds until connected (max 5 minutes)
+    let pollCount = 0;
+    const maxPolls = 100;
+    if (driveConnectPollInterval) clearInterval(driveConnectPollInterval);
+    driveConnectPollInterval = setInterval(async () => {
+      pollCount++;
+      const statusRes = await fetch("/api/drive/status");
+      const statusData = await statusRes.json();
+      if (statusData.connected) {
+        clearInterval(driveConnectPollInterval);
+        driveConnectPollInterval = null;
+        renderDriveStatus(statusData);
+        showToast("Google Drive connected successfully!", "success");
+      } else if (pollCount >= maxPolls) {
+        clearInterval(driveConnectPollInterval);
+        driveConnectPollInterval = null;
+        showToast("Connection timed out. Try again.", "error");
+      }
+    }, 3000);
+  } catch (err) {
+    console.error("Failed to connect Drive:", err);
+    showToast("Failed to initiate Drive connection", "error");
+  }
+}
+
+// Disconnect Drive (remove local token)
+async function disconnectDrive() {
+  try {
+    const res = await fetch("/api/drive/token", { method: "DELETE" });
+    const data = await res.json();
+
+    if (res.ok) {
+      showToast("Google Drive disconnected", "success");
+      await loadDriveStatus();
+    } else {
+      showToast(data.error || "Failed to disconnect Drive", "error");
+    }
+  } catch (err) {
+    console.error("Failed to disconnect Drive:", err);
+    showToast("Failed to disconnect Drive", "error");
+  }
+}
+
+// Test Drive Backup manually from UI
+async function testDriveBackup() {
+  const btn = document.getElementById("driveTestBtn");
+  btn.disabled = true;
+  btn.innerHTML = `<i class="bi bi-hourglass-split"></i> Starting...`;
+
+  try {
+    const res = await fetch("/api/drive/test", { method: "POST" });
+    const data = await res.json();
+
+    if (res.ok) {
+      showToast(
+        "Manual backup started! Check console for progress.",
+        "success",
+      );
+    } else {
+      showToast(data.error || "Failed to start backup", "error");
+    }
+  } catch (err) {
+    console.error("Failed to start test backup:", err);
+    showToast("Failed to communicate with server", "error");
+  } finally {
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.innerHTML = `<i class="bi bi-play-circle"></i> Test Backup`;
+    }, 2000);
+  }
 }

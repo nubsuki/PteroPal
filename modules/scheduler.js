@@ -1,4 +1,5 @@
 const fs = require("fs-extra");
+const path = require("path");
 const backup = require("./backup");
 const folderConfig = require("./folderConfig");
 const googleDrive = require("./googleDrive");
@@ -32,7 +33,7 @@ async function shutdownServer(server) {
 }
 
 // Orchestrate server shutdown, offline waiting, and backup execution
-async function initiateBackupSequence(getAllServers) {
+async function initiateBackupSequence(getAllServers, notifyFn = null) {
   console.log("Starting backup process...");
 
   const shouldShutdown = process.env.SHUTDOWN_BEFORE_BACKUP !== "false";
@@ -45,7 +46,11 @@ async function initiateBackupSequence(getAllServers) {
 
     console.log("Waiting for servers to go offline...");
     let allOffline = false;
-    while (!allOffline) {
+    let attempts = 0;
+    const maxAttempts = 120; // 10 minutes max (120 * 5s)
+
+    while (!allOffline && attempts < maxAttempts) {
+      attempts++;
       allOffline = true;
       const currentServers = await getAllServers();
       for (const server of currentServers) {
@@ -53,7 +58,7 @@ async function initiateBackupSequence(getAllServers) {
         if (status !== "offline") {
           allOffline = false;
           console.log(
-            `Server ${server.name} (${server.panel}) is still ${status}. Waiting...`
+            `Server ${server.name} (${server.panel}) is still ${status}. Waiting... (${attempts}/${maxAttempts})`
           );
         }
       }
@@ -61,32 +66,41 @@ async function initiateBackupSequence(getAllServers) {
         await new Promise((resolve) => setTimeout(resolve, 5000));
       }
     }
-    console.log("All servers are offline. Proceeding with backup.");
+    
+    if (!allOffline) {
+      console.warn("Timed out waiting for servers to go offline. Proceeding with backup.");
+    } else {
+      console.log("All servers are offline. Proceeding with backup.");
+    }
   } else {
     console.log("Skipping server shutdown as per configuration.");
   }
 
   const enableDriveBackup = process.env.ENABLE_DRIVE_BACKUP !== "false";
+  let auth = null;
 
   if (enableDriveBackup) {
-    fs.readFile(path.join(__dirname, "..", "config", "credentials.json"), (err, content) => {
-      if (err) return console.log("Error loading client secret file:", err);
-      googleDrive.authorize(JSON.parse(content), backup.performBackup);
-    });
+    try {
+      auth = await googleDrive.authorizeAsync();
+    } catch (err) {
+      console.warn("Google Drive not connected:", err.message);
+      if (notifyFn) {
+        notifyFn("⚠️ Google Drive is not connected. Running local backup only.");
+      }
+    }
   } else {
-    console.log(
-      "Google Drive backup is disabled. Performing local backup only."
-    );
-    await backup.performBackup(null);
+    console.log("Google Drive backup disabled. Performing local backup only.");
   }
+
+  await backup.performBackup(auth);
 }
 
 // Start interval checks for server status and backup schedule
-function init({ getAllServers }) {
+function init({ getAllServers, notifyFn }) {
   async function checkTimeAndPerformActions() {
     if (isTimeBackup()) {
       console.log("Time for scheduled backup.");
-      await initiateBackupSequence(getAllServers);
+      await initiateBackupSequence(getAllServers, notifyFn);
     } else {
       console.log("Not the time for backup.");
     }

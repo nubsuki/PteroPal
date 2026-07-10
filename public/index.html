@@ -98,6 +98,31 @@
       </div>
     </section>
 
+    <!-- ═══════════ Google Drive Section ═══════════ -->
+    <section class="section" id="driveSection">
+      <div class="section-header">
+        <div class="section-title">
+          <div class="section-icon-wrap">
+            <i class="bi bi-cloud"></i>
+          </div>
+          <h2>Google Drive</h2>
+        </div>
+        <div class="section-actions" id="driveActions">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+      <!-- Drive Status Card -->
+      <div id="driveStatusCard" class="drive-status-card">
+        <div class="drive-status-indicator" id="driveStatusIndicator">
+          <div class="drive-status-dot" id="driveStatusDot"></div>
+          <span id="driveStatusLabel">Checking...</span>
+        </div>
+        <p id="driveStatusReason" class="drive-status-reason"></p>
+        <input type="file" id="credentialsUploadInput" accept=".json" style="display: none;" onchange="handleCredentialsUpload(event)">
+      </div>
+    </section>
+
   </main>
 
   <!-- ═══════════ Folder Browser Modal ═══════════ -->

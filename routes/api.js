@@ -3,6 +3,7 @@ const fs = require("fs-extra");
 const path = require("path");
 const folderConfig = require("../modules/folderConfig");
 const backup = require("../modules/backup");
+const googleDrive = require("../modules/googleDrive");
 
 const router = express.Router();
 
@@ -132,6 +133,81 @@ function init({ getConfiguredPanels, getAllServers }) {
     }
 
     res.json({ results });
+  });
+
+  // Google Drive API
+
+  // Get Drive connection status
+  router.get("/drive/status", (req, res) => {
+    res.json(googleDrive.getConnectionStatus());
+  });
+
+  // Upload credentials.json
+  router.post("/drive/credentials", express.json(), (req, res) => {
+    try {
+      const data = req.body;
+      if (!data || !data.web || !data.web.client_id) {
+        return res.status(400).json({ error: "Invalid credentials format" });
+      }
+      googleDrive.saveCredentials(data);
+      res.json({ success: true, message: "Credentials saved." });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to save credentials." });
+    }
+  });
+
+  // Delete credentials.json (and token if exists)
+  router.delete("/drive/credentials", (req, res) => {
+    try {
+      googleDrive.deleteCredentials();
+      res.json({ success: true, message: "Credentials removed." });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to remove credentials." });
+    }
+  });
+
+  // Get OAuth URL for user to authorize Drive
+  router.get("/drive/auth-url", (req, res) => {
+    const url = googleDrive.getAuthUrl();
+    if (!url) {
+      return res.status(404).json({
+        error: "credentials.json not found. Cannot generate auth URL.",
+      });
+    }
+    res.json({ url });
+  });
+
+  // Disconnect Drive (remove local token only)
+  router.delete("/drive/token", (req, res) => {
+    const removed = googleDrive.disconnect();
+    if (removed) {
+      res.json({ success: true, message: "Google Drive disconnected." });
+    } else {
+      res
+        .status(404)
+        .json({ error: "No token found — Drive was not connected." });
+    }
+  });
+
+  // Test Drive Backup manually from UI
+  router.post("/drive/test", (req, res) => {
+    const status = googleDrive.getConnectionStatus();
+    if (!status.enabled) {
+      return res
+        .status(400)
+        .json({ error: "Drive backup is disabled in .env" });
+    }
+
+    // Create a dummy channel object to satisfy channel.send() in backup.js
+    const dummyChannel = {
+      send: (msg) => console.log(`[UI Test Backup] ${msg}`),
+    };
+
+    backup.performManualBackup(dummyChannel).catch((err) => {
+      console.error("[UI Test Backup] Failed:", err);
+    });
+
+    res.json({ success: true, message: "Manual backup triggered." });
   });
 
   return router;

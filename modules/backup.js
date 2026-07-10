@@ -40,14 +40,45 @@ async function createZipArchive(folderPath, zipFilePath) {
   });
 }
 
+// Helper to get or create a Drive folder by name and parent
+async function getOrCreateDriveFolder(drive, folderName, parentId = null) {
+  let q = `name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+  if (parentId) {
+    q += ` and '${parentId}' in parents`;
+  } else {
+    q += ` and 'root' in parents`;
+  }
+  
+  const res = await drive.files.list({ q, fields: "files(id, name)" });
+  if (res.data.files.length > 0) {
+    return res.data.files[0].id;
+  }
+
+  const metadata = {
+    name: folderName,
+    mimeType: "application/vnd.google-apps.folder",
+  };
+  if (parentId) metadata.parents = [parentId];
+
+  const created = await drive.files.create({ resource: metadata, fields: "id" });
+  return created.data.id;
+}
+
 // Process scheduled backups for all folders (local & Google Drive)
 async function processBackups(auth) {
   const folderNames = folderConfig.getFolderNames();
   const folderPaths = folderConfig.getFolderPaths();
   let drive = null;
+  let rootBackupFolderId = null;
 
   if (auth) {
     drive = google.drive({ version: "v3", auth });
+    try {
+      rootBackupFolderId = await getOrCreateDriveFolder(drive, "Petropal Backups");
+    } catch (err) {
+      console.error("Failed to access or create root 'Petropal Backups' folder in Drive:", err.message);
+      drive = null; // Disable drive uploads for this run
+    }
   }
 
   for (const [index, mainFolderName] of folderNames.entries()) {
@@ -69,30 +100,9 @@ async function processBackups(auth) {
     const maxBackups = parseInt(process.env.MAX_BACKUPS);
 
     // Handle Google Drive Backup if auth is provided
-    if (drive) {
+    if (drive && rootBackupFolderId) {
       try {
-        const res = await drive.files.list({
-          q: `name='${mainFolderName}' and mimeType='application/vnd.google-apps.folder'`,
-          fields: "files(id, name)",
-        });
-
-        const folders = res.data.files;
-        let mainFolderId;
-
-        if (folders.length > 0) {
-          mainFolderId = folders[0].id;
-        } else {
-          const mainFolderMetadata = {
-            name: mainFolderName,
-            mimeType: "application/vnd.google-apps.folder",
-          };
-
-          const mainFolder = await drive.files.create({
-            resource: mainFolderMetadata,
-            fields: "id",
-          });
-          mainFolderId = mainFolder.data.id;
-        }
+        const mainFolderId = await getOrCreateDriveFolder(drive, mainFolderName, rootBackupFolderId);
 
         // Upload the ZIP file to Google Drive
         await googleDrive.uploadZipFile(auth, mainFolderId, zipFilePath);
@@ -173,24 +183,20 @@ async function performManualBackup(channel) {
   channel.send("Manual backup triggered");
 
   const enableDriveBackup = process.env.ENABLE_DRIVE_BACKUP !== "false";
+  let auth = null;
 
   if (enableDriveBackup) {
-    fs.readFile(
-      path.join(__dirname, "..", "config", "credentials.json"),
-      (err, content) => {
-        if (err) {
-          console.log("Error loading client secret file:", err);
-          channel.send("Error loading Drive credentials. Check console.");
-          return;
-        }
-        googleDrive.authorize(JSON.parse(content), (auth) =>
-          executeManualBackup(auth, channel),
-        );
-      },
-    );
-  } else {
-    await executeManualBackup(null, channel);
+    try {
+      auth = await googleDrive.authorizeAsync();
+    } catch (err) {
+      console.error("Drive auth failed:", err.message);
+      channel.send(
+        `⚠️ Google Drive not connected — performing local backup only. Connect Drive from the dashboard: http://localhost:3000`
+      );
+    }
   }
+
+  await executeManualBackup(auth, channel);
 }
 
 // Execute manual backup sequence
@@ -199,9 +205,16 @@ async function executeManualBackup(auth, channel) {
   const folderNames = folderConfig.getFolderNames();
   const folderPaths = folderConfig.getFolderPaths();
   let drive = null;
+  let rootBackupFolderId = null;
 
   if (auth) {
     drive = google.drive({ version: "v3", auth });
+    try {
+      rootBackupFolderId = await getOrCreateDriveFolder(drive, "Petropal Backups");
+    } catch (err) {
+      console.error("Failed to access or create root 'Petropal Backups' folder in Drive:", err.message);
+      drive = null;
+    }
   }
 
   for (const [index, mainFolderName] of folderNames.entries()) {
@@ -224,31 +237,10 @@ async function executeManualBackup(auth, channel) {
       channel.send(`Successfully saved local backup for ${mainFolderName}.`);
 
       // Handle Google Drive Backup if auth is provided
-      if (drive) {
+      if (drive && rootBackupFolderId) {
         try {
           const manualFolderName = `${mainFolderName} - Manual Backups`;
-          const res = await drive.files.list({
-            q: `name='${manualFolderName}' and mimeType='application/vnd.google-apps.folder'`,
-            fields: "files(id, name)",
-          });
-
-          const folders = res.data.files;
-          let mainFolderId;
-
-          if (folders.length > 0) {
-            mainFolderId = folders[0].id;
-          } else {
-            const mainFolderMetadata = {
-              name: manualFolderName,
-              mimeType: "application/vnd.google-apps.folder",
-            };
-
-            const mainFolder = await drive.files.create({
-              resource: mainFolderMetadata,
-              fields: "id",
-            });
-            mainFolderId = mainFolder.data.id;
-          }
+          const mainFolderId = await getOrCreateDriveFolder(drive, manualFolderName, rootBackupFolderId);
 
           // Upload the ZIP file to Google Drive
           await googleDrive.uploadZipFile(auth, mainFolderId, zipFilePath);

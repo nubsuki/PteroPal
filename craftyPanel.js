@@ -52,8 +52,6 @@ async function getServers() {
       `${CRAFTY_API_URL}/api/v2/servers`,
       { headers: getHeaders() }
     );
-    // Debug: log the raw response to understand the data structure
-    console.log("[Crafty] Raw API response:", JSON.stringify(response.data, null, 2));
 
     // Crafty API may nest servers differently depending on version
     const serverData = response.data.data || response.data || [];

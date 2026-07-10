@@ -9,6 +9,10 @@ const client = new Client({
 });
 
 const DISCORD_PREFIX = process.env.DISCORD_PREFIX || ".";
+const DISCORD_NOTIFY_CHANNEL = process.env.DISCORD_NOTIFY_CHANNEL || null;
+
+// Channel used for sending system notifications (e.g. Drive disconnected)
+let notifyChannel = null;
 
 // Initialize Discord bot
 function init({ getAllServers, getConfiguredPanels, performManualBackup }) {
@@ -117,6 +121,11 @@ function init({ getAllServers, getConfiguredPanels, performManualBackup }) {
 
   // Message handler
   client.on("messageCreate", async (message) => {
+    // Track last channel used for fallback notifications
+    if (!message.author.bot && message.content.startsWith(DISCORD_PREFIX)) {
+      if (!notifyChannel) notifyChannel = message.channel;
+    }
+
     if (!message.content.startsWith(DISCORD_PREFIX)) return;
 
     const args = message.content.slice(DISCORD_PREFIX.length).trim().split(" ");
@@ -220,6 +229,16 @@ GitHub: [PteroPal](https://github.com/nubsuki/PteroPal).`;
     console.log(
       `Active panels: ${panels.map((p) => p.panelName).join(", ") || "None"}`,
     );
+
+    // Set up the notify channel
+    if (DISCORD_NOTIFY_CHANNEL) {
+      notifyChannel = client.channels.cache.get(DISCORD_NOTIFY_CHANNEL) || null;
+      if (notifyChannel) {
+        console.log(`[Discord] Notify channel set to: #${notifyChannel.name}`);
+      } else {
+        console.warn(`[Discord] DISCORD_NOTIFY_CHANNEL "${DISCORD_NOTIFY_CHANNEL}" not found.`);
+      }
+    }
   });
 
   if (process.env.DISCORD_TOKEN) {
@@ -229,4 +248,15 @@ GitHub: [PteroPal](https://github.com/nubsuki/PteroPal).`;
   }
 }
 
-module.exports = { init };
+// Send a notification to the configured notify channel
+function sendNotification(message) {
+  if (notifyChannel) {
+    notifyChannel.send(message).catch((err) =>
+      console.error("[Discord] Failed to send notification:", err.message)
+    );
+  } else {
+    console.log("[Discord] Notification (no channel set):", message);
+  }
+}
+
+module.exports = { init, sendNotification };

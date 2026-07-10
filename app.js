@@ -80,7 +80,7 @@ discord.init({
 });
 
 // Initialize scheduler
-scheduler.init({ getAllServers });
+scheduler.init({ getAllServers, notifyFn: discord.sendNotification });
 
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);

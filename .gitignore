@@ -2,5 +2,6 @@
 node_modules
 credentials.json
 token.json
-local_backups
-manual_backups
+backups
+docker_compose_t.yml
+config

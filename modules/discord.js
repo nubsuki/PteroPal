@@ -189,6 +189,13 @@ function init({ getAllServers, getConfiguredPanels, performManualBackup }) {
       await performManualBackup(message.channel);
     }
 
+    if (command === "testalert") {
+      message.channel.send("Triggering test system alert...");
+      sendNotification(
+        "🔔 **System Alert Test**: If you are seeing this, PteroPal's system alerts are correctly configured!"
+      );
+    }
+
     if (command === "help") {
       const panels = getConfiguredPanels();
       const panelList = panels.map((p) => p.panelName).join(", ") || "None";
@@ -212,6 +219,9 @@ Stops the server corresponding to the number from the server list.
 **${DISCORD_PREFIX}backup**
 Triggers an immediate manual backup for all configured folders.
 *These backups are saved to a separate 'manual_backups' folder and are not deleted automatically.*
+
+**${DISCORD_PREFIX}testalert**
+Sends a test system alert to verify that the DISCORD_NOTIFY_CHANNEL is configured correctly.
 
 **${DISCORD_PREFIX}help**
 Shows this help message.

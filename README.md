@@ -1,7 +1,7 @@
 # PteroPal - Game Server Manager & Backup Bot
 
 ![GHCR Pulls](https://ghcr-badge.elias.eu.org/shield/nubsuki/pteropal)
-![BuyMeACoffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Donate-yellow?logo=buymeacoffee)](https://buymeacoffee.com/nubsuki)
+[![BuyMeACoffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Donate-yellow?logo=buymeacoffee)](https://buymeacoffee.com/nubsuki)
 
 PteroPal is a powerful tool designed to simplify the management and backup of game servers hosted on **Pterodactyl** and **Crafty Controller**. It features a modern web dashboard, Discord bot integration, and automated cloud backups.
 

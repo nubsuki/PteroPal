@@ -61,6 +61,8 @@ If `ENABLE_DRIVE_BACKUP` is set to `true`:
 8.  Under the Google Drive section, click **Upload credentials.json** and select the file you just downloaded.
 9.  Click **Connect Google Drive** and authorize your account. You're done!
 
+> **💡 Important Note on Token Expiration**: If your Google Cloud project's "OAuth Consent Screen" is set to **Testing**, your Google Drive token will expire every 7 days, forcing you to reconnect. To fix this, simply go to your Google Cloud Console -> OAuth Consent Screen, and click **Publish App** (set it to "In production"). You do *not* need to actually submit it for verification since you are the only one using it.
+
 ## Configuration Variables (`.env`)
 
 | Variable                 | Description                                                                                        | Default     |

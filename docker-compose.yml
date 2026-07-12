@@ -19,7 +19,8 @@ services:
       #           BACKUP CONFIGURATION
       - TZ=Asia/Colombo # Your timezone
       - BACKUP_TIME=05:00 # Time for backup 24h format (e.g., 14:30)
-      - MAX_BACKUPS=10 # 0 = Keep all backups. > 0 = Keep latest N backups.
+      - MAX_BACKUPS=5 # 0 = Keep all backups. > 0 = Keep latest N local backups.
+      - MAX_DRIVE_BACKUPS=3 # 0 = Keep all backups. > 0 = Keep latest N Google Drive backups.
       - SHUTDOWN_BEFORE_BACKUP=true # Set to false to disable server shutdown before backup
       
       #         GOOGLE DRIVE INTEGRATION

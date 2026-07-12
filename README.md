@@ -78,7 +78,8 @@ If `ENABLE_DRIVE_BACKUP` is set to `true`:
 | `SHUTDOWN_BEFORE_BACKUP` | `true` to stop servers before backing up (safer).                                                  | `true`      |
 | `BACKUP_TIME`            | Time to run auto-backup (24h format, e.g., `14:30`).                                               | Required    |
 | `TZ`                     | Timezone for the backup schedule (e.g., `Asia/Colombo`).                                           | System Time |
-| `MAX_BACKUPS`            | Number of auto-backups to keep (0 = infinite).                                                     | `0`         |
+| `MAX_BACKUPS`            | Number of local auto-backups to keep (0 = infinite).                                               | `0`         |
+| `MAX_DRIVE_BACKUPS`      | Number of Google Drive auto-backups to keep (0 = infinite).                                        | `0`         |
 
 ## Commands
 
@@ -92,6 +93,8 @@ If `ENABLE_DRIVE_BACKUP` is set to `true`:
   - **Manual Backup**: Immediately creates a backup of all configured folders.
   - These backups are saved to the `manual_backups` folder (and "Folder - Manual Backups" on Drive).
   - They are **not** deleted by the retention policy.
+- `.testalert`
+  - Sends a test system alert to verify that the DISCORD_NOTIFY_CHANNEL is configured correctly.
 - `.help`
   - Lists all commands and their descriptions.
 

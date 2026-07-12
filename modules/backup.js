@@ -98,6 +98,9 @@ async function processBackups(auth) {
     console.log(`Created ZIP archive: ${zipFilePath}`);
 
     const maxBackups = parseInt(process.env.MAX_BACKUPS);
+    const maxDriveBackups = process.env.MAX_DRIVE_BACKUPS !== undefined 
+      ? parseInt(process.env.MAX_DRIVE_BACKUPS) 
+      : maxBackups; // Fallback to MAX_BACKUPS if MAX_DRIVE_BACKUPS is not set
 
     // Handle Google Drive Backup if auth is provided
     if (drive && rootBackupFolderId) {
@@ -109,8 +112,8 @@ async function processBackups(auth) {
         console.log(`Backup uploaded to Drive for ${mainFolderName}.`);
 
         // Cleanup old Drive backups
-        if (!isNaN(maxBackups) && maxBackups > 0) {
-          await googleDrive.cleanupOldBackups(auth, mainFolderId, maxBackups);
+        if (!isNaN(maxDriveBackups) && maxDriveBackups > 0) {
+          await googleDrive.cleanupOldBackups(auth, mainFolderId, maxDriveBackups);
         }
       } catch (err) {
         console.error(`Error during Drive backup for ${mainFolderName}:`, err);

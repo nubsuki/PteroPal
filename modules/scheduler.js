@@ -3,6 +3,8 @@ const path = require("path");
 const backup = require("./backup");
 const folderConfig = require("./folderConfig");
 const googleDrive = require("./googleDrive");
+const statusUpdater = require("./statusUpdater");
+const discord = require("./discord");
 
 // Check if current time is scheduled backup time
 function isTimeBackup() {
@@ -126,6 +128,9 @@ function init({ getAllServers, notifyFn }) {
 
     console.log("Automatic check completed");
     console.log("-----------------------------------");
+
+    // Update status embeds
+    await statusUpdater.updateAllEmbeds(discord.client, getAllServers);
 
     await checkTimeAndPerformActions();
   }, 60000);

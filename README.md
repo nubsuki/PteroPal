@@ -13,6 +13,7 @@ Control your servers directly from Discord, perform automatic scheduled backups,
   - Manage and configure backup folders via an interactive UI.
   - One-click Google Drive connection and OAuth setup.
   - Test Panel connections and Drive backups directly from the browser.
+  - Customize Discord status embed descriptions with a Markdown editor (bold, italic, underline, code, quotes).
 - **Server Management (Discord & Automated)**:
   - Support for both **Pterodactyl** and **Crafty Controller**.
   - List all servers with their current status.
@@ -61,7 +62,7 @@ If `ENABLE_DRIVE_BACKUP` is set to `true`:
 8.  Under the Google Drive section, click **Upload credentials.json** and select the file you just downloaded.
 9.  Click **Connect Google Drive** and authorize your account. You're done!
 
-> **💡 Important Note on Token Expiration**: If your Google Cloud project's "OAuth Consent Screen" is set to **Testing**, your Google Drive token will expire every 7 days, forcing you to reconnect. To fix this, simply go to your Google Cloud Console -> OAuth Consent Screen, and click **Publish App** (set it to "In production"). You do *not* need to actually submit it for verification since you are the only one using it.
+> **💡 Important Note on Token Expiration**: If your Google Cloud project's "OAuth Consent Screen" is set to **Testing**, your Google Drive token will expire every 7 days, forcing you to reconnect. To fix this, simply go to your Google Cloud Console -> OAuth Consent Screen, and click **Publish App** (set it to "In production"). You do _not_ need to actually submit it for verification since you are the only one using it.
 
 ## Configuration Variables (`.env`)
 

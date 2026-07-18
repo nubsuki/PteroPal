@@ -4,6 +4,7 @@ const path = require("path");
 const folderConfig = require("../modules/folderConfig");
 const backup = require("../modules/backup");
 const googleDrive = require("../modules/googleDrive");
+const statusUpdater = require("../modules/statusUpdater");
 
 const router = express.Router();
 
@@ -208,6 +209,41 @@ function init({ getConfiguredPanels, getAllServers }) {
     });
 
     res.json({ success: true, message: "Manual backup triggered." });
+  });
+
+  // Get server metadata
+  router.get("/servers/metadata", (req, res) => {
+    try {
+      const metadata = statusUpdater.loadServerMetadata();
+      res.json(metadata);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to load metadata" });
+    }
+  });
+
+  // Get all servers
+  router.get("/servers", async (req, res) => {
+    try {
+      const servers = await getAllServers();
+      res.json({ servers });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch servers" });
+    }
+  });
+
+  // Update server metadata
+  router.post("/servers/metadata", (req, res) => {
+    const { serverId, customName, description, iconUrl } = req.body;
+    if (!serverId) return res.status(400).json({ error: "serverId is required" });
+
+    try {
+      const metadata = statusUpdater.loadServerMetadata();
+      metadata[serverId] = { customName, description, iconUrl };
+      statusUpdater.saveServerMetadata(metadata);
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to save metadata" });
+    }
   });
 
   return router;

@@ -1,4 +1,5 @@
 const { Client, GatewayIntentBits } = require("discord.js");
+const statusUpdater = require("./statusUpdater");
 
 const client = new Client({
   intents: [
@@ -44,20 +45,25 @@ function init({ getAllServers, getConfiguredPanels, performManualBackup }) {
 
       const pollInterval = setInterval(async () => {
         retries++;
-        const currentStatus = await panelModule.getServerStatus(serverId);
-        console.log(
-          `Checking status for ${serverName}: ${currentStatus} (Attempt ${retries}/${maxRetries})`,
-        );
+        try {
+          const currentStatus = await panelModule.getServerStatus(serverId);
+          console.log(
+            `Checking status for ${serverName}: ${currentStatus} (Attempt ${retries}/${maxRetries})`,
+          );
 
-        if (currentStatus === "running") {
-          channel.send(
-            `Server "${serverName}" (${panelModule.panelName}) is now ONLINE!`,
-          );
-          clearInterval(pollInterval);
-        } else if (retries >= maxRetries) {
-          channel.send(
-            `Server "${serverName}" (${panelModule.panelName}) took too long to start. Please check the panel.`,
-          );
+          if (currentStatus === "running") {
+            channel.send(
+              `Server "${serverName}" (${panelModule.panelName}) is now ONLINE!`,
+            );
+            clearInterval(pollInterval);
+          } else if (retries >= maxRetries) {
+            channel.send(
+              `Server "${serverName}" (${panelModule.panelName}) took too long to start. Please check the panel.`,
+            );
+            clearInterval(pollInterval);
+          }
+        } catch (err) {
+          console.error(`Error polling status for ${serverName}:`, err.message);
           clearInterval(pollInterval);
         }
       }, 5000);
@@ -94,20 +100,25 @@ function init({ getAllServers, getConfiguredPanels, performManualBackup }) {
 
       const pollInterval = setInterval(async () => {
         retries++;
-        const currentStatus = await panelModule.getServerStatus(serverId);
-        console.log(
-          `Checking status for ${serverName}: ${currentStatus} (Attempt ${retries}/${maxRetries})`,
-        );
+        try {
+          const currentStatus = await panelModule.getServerStatus(serverId);
+          console.log(
+            `Checking status for ${serverName}: ${currentStatus} (Attempt ${retries}/${maxRetries})`,
+          );
 
-        if (currentStatus === "offline") {
-          channel.send(
-            `Server "${serverName}" (${panelModule.panelName}) is now OFFLINE!`,
-          );
-          clearInterval(pollInterval);
-        } else if (retries >= maxRetries) {
-          channel.send(
-            `Server "${serverName}" (${panelModule.panelName}) took too long to stop. Please check the panel.`,
-          );
+          if (currentStatus === "offline") {
+            channel.send(
+              `Server "${serverName}" (${panelModule.panelName}) is now OFFLINE!`,
+            );
+            clearInterval(pollInterval);
+          } else if (retries >= maxRetries) {
+            channel.send(
+              `Server "${serverName}" (${panelModule.panelName}) took too long to stop. Please check the panel.`,
+            );
+            clearInterval(pollInterval);
+          }
+        } catch (err) {
+          console.error(`Error polling status for ${serverName}:`, err.message);
           clearInterval(pollInterval);
         }
       }, 5000);
@@ -163,7 +174,13 @@ function init({ getAllServers, getConfiguredPanels, performManualBackup }) {
 
     if (command === "start" && args[1]) {
       const serverIndex = parseInt(args[1]) - 1;
-      const servers = await getAllServers();
+      let servers;
+      try {
+        servers = await getAllServers();
+      } catch (err) {
+        console.error("Error fetching servers for start command:", err.message);
+        return message.channel.send("An error occurred while fetching servers.");
+      }
 
       if (serverIndex < 0 || serverIndex >= servers.length) {
         return message.channel.send("Invalid server number.");
@@ -175,7 +192,13 @@ function init({ getAllServers, getConfiguredPanels, performManualBackup }) {
 
     if (command === "stop" && args[1]) {
       const serverIndex = parseInt(args[1]) - 1;
-      const servers = await getAllServers();
+      let servers;
+      try {
+        servers = await getAllServers();
+      } catch (err) {
+        console.error("Error fetching servers for stop command:", err.message);
+        return message.channel.send("An error occurred while fetching servers.");
+      }
 
       if (serverIndex < 0 || serverIndex >= servers.length) {
         return message.channel.send("Invalid server number.");
@@ -194,6 +217,31 @@ function init({ getAllServers, getConfiguredPanels, performManualBackup }) {
       sendNotification(
         "🔔 **System Alert Test**: If you are seeing this, PteroPal's system alerts are correctly configured!"
       );
+    }
+
+    if (command === "setstatus" && args[1]) {
+      const serverIndex = parseInt(args[1]) - 1;
+      const servers = await getAllServers();
+      if (serverIndex < 0 || serverIndex >= servers.length) {
+        return message.channel.send("Invalid server number.");
+      }
+      const server = servers[serverIndex];
+      try {
+        const metadataMap = statusUpdater.loadServerMetadata();
+        const status = await server.panelModule.getServerStatus(server.id);
+        const embed = statusUpdater.createStatusEmbed(server, status, metadataMap[server.id]);
+        const sentMsg = await message.channel.send({ embeds: [embed] });
+        statusUpdater.trackStatusMessage(server.id, message.channel.id, sentMsg.id);
+      } catch (err) {
+        message.channel.send("Failed to create status embed.");
+        console.error("setstatus error:", err);
+      }
+    }
+
+    if (command === "removestatus" && args[1]) {
+      // Expects the message ID to remove
+      statusUpdater.removeStatusMessage(args[1]);
+      message.channel.send("Stopped tracking that status embed.");
     }
 
     if (command === "help") {
@@ -219,6 +267,12 @@ Stops the server corresponding to the number from the server list.
 **${DISCORD_PREFIX}backup**
 Triggers an immediate manual backup for all configured folders.
 *These backups are saved to a separate 'manual_backups' folder and are not deleted automatically.*
+
+**${DISCORD_PREFIX}setstatus <number>**
+Creates a pinned, auto-updating rich embed showing the live status of the server. You can configure custom titles, descriptions, and icons from the Web Dashboard!
+
+**${DISCORD_PREFIX}removestatus <message_id>**
+Stops updating a specific status embed.
 
 **${DISCORD_PREFIX}testalert**
 Sends a test system alert to verify that the DISCORD_NOTIFY_CHANNEL is configured correctly.
@@ -269,4 +323,4 @@ function sendNotification(message) {
   }
 }
 
-module.exports = { init, sendNotification };
+module.exports = { init, sendNotification, client };

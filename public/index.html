@@ -127,6 +127,35 @@
         </div>
       </section>
 
+      <!-- ═══════════ Server Embed Settings Section ═══════════ -->
+      <section class="section" id="serversSection">
+        <div class="section-header">
+          <div class="section-title">
+            <div class="section-icon-wrap">
+              <i class="bi bi-discord"></i>
+            </div>
+            <h2>Server Embeds</h2>
+          </div>
+          <div class="section-actions">
+            <button
+              class="btn btn-outline"
+              id="loadServersBtn"
+              onclick="loadServers()"
+            >
+              <i class="bi bi-arrow-clockwise"></i>
+              Refresh
+            </button>
+          </div>
+        </div>
+
+        <div id="serversList" class="folder-list">
+          <div class="test-placeholder">
+            <i class="bi bi-lightbulb" style="opacity: 0.4"></i>
+            <span>Click "Refresh" to load servers and configure their Discord embeds</span>
+          </div>
+        </div>
+      </section>
+
       <!-- ═══════════ Google Drive Section ═══════════ -->
       <section class="section" id="driveSection">
         <div class="section-header">
@@ -217,6 +246,104 @@
           >
             <i class="bi bi-plus-lg"></i>
             Add Folder
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════ Server Settings Modal ═══════════ -->
+    <div id="serverModal" class="modal-overlay" style="display: none">
+      <div class="modal" role="dialog" aria-label="Server Settings">
+        <div class="modal-header">
+          <h3>Server Settings</h3>
+          <button
+            class="modal-close"
+            onclick="closeServerModal()"
+            aria-label="Close"
+          >
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+
+        <div style="padding: 1rem 1.5rem; color: var(--text-secondary); font-size: 0.9rem;">
+          Customize how this server appears in the Discord status embeds.
+        </div>
+
+        <input type="hidden" id="serverIdInput" />
+
+        <div class="modal-field">
+          <label for="serverNameInput">Custom Name</label>
+          <input
+            type="text"
+            id="serverNameInput"
+            class="modal-input"
+            placeholder="e.g., SMP Minecraft Server"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+
+        <div class="modal-field">
+          <label for="serverDescInput">Description</label>
+          <div class="md-editor">
+            <div class="md-toolbar" role="toolbar" aria-label="Formatting options">
+              <button type="button" class="md-btn" onclick="mdFormat('bold')" title="Bold (**text**)">
+                <i class="bi bi-type-bold"></i>
+              </button>
+              <button type="button" class="md-btn" onclick="mdFormat('italic')" title="Italic (*text*)">
+                <i class="bi bi-type-italic"></i>
+              </button>
+              <button type="button" class="md-btn" onclick="mdFormat('underline')" title="Underline (__text__)">
+                <i class="bi bi-type-underline"></i>
+              </button>
+              <button type="button" class="md-btn" onclick="mdFormat('strike')" title="Strikethrough (~~text~~)">
+                <i class="bi bi-type-strikethrough"></i>
+              </button>
+              <div class="md-divider"></div>
+              <button type="button" class="md-btn" onclick="mdFormat('code')" title="Inline code (`text`)">
+                <i class="bi bi-code"></i>
+              </button>
+              <button type="button" class="md-btn" onclick="mdFormat('quote')" title="Block quote (>>> text)">
+                <i class="bi bi-blockquote-left"></i>
+              </button>
+              <div class="md-divider"></div>
+              <span class="md-hint">Markdown supported</span>
+            </div>
+            <textarea
+              id="serverDescInput"
+              class="modal-input md-textarea"
+              placeholder="e.g., **Survival 1.20** | *Plugins Enabled*&#10;>>> Featured server of the month"
+              rows="4"
+              spellcheck="false"
+            ></textarea>
+          </div>
+        </div>
+
+
+        <div class="modal-field">
+          <label for="serverIconInput">Icon URL (optional)</label>
+          <input
+            type="text"
+            id="serverIconInput"
+            class="modal-input"
+            placeholder="e.g., https://example.com/icon.png"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+
+        <!-- Modal Actions -->
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="closeServerModal()">
+            Cancel
+          </button>
+          <button
+            class="btn btn-primary"
+            id="saveServerSettingsBtn"
+            onclick="saveServerSettings()"
+          >
+            <i class="bi bi-floppy"></i>
+            Save Settings
           </button>
         </div>
       </div>

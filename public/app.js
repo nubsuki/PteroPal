@@ -597,6 +597,51 @@ async function testDriveBackup() {
   }
 }
 
+// Markdown toolbar formatter for description textarea
+function mdFormat(type) {
+  const ta = document.getElementById('serverDescInput');
+  if (!ta) return;
+
+  const start = ta.selectionStart;
+  const end   = ta.selectionEnd;
+  const selected = ta.value.substring(start, end);
+  const before = ta.value.substring(0, start);
+  const after  = ta.value.substring(end);
+
+  const formats = {
+    bold:      { wrap: '**',  placeholder: 'bold text' },
+    italic:    { wrap: '*',   placeholder: 'italic text' },
+    underline: { wrap: '__',  placeholder: 'underline text' },
+    strike:    { wrap: '~~',  placeholder: 'strikethrough' },
+    code:      { wrap: '`',   placeholder: 'code' },
+    quote:     { prefix: '>>> ', placeholder: 'block quote text' },
+  };
+
+  const fmt = formats[type];
+  if (!fmt) return;
+
+  let newText, cursorStart, cursorEnd;
+
+  if (fmt.prefix !== undefined) {
+    // Block-level: prefix the line
+    const text = selected || fmt.placeholder;
+    newText = before + fmt.prefix + text + after;
+    cursorStart = start + fmt.prefix.length;
+    cursorEnd = cursorStart + text.length;
+  } else {
+    // Inline: wrap with markers
+    const text = selected || fmt.placeholder;
+    const w = fmt.wrap;
+    newText = before + w + text + w + after;
+    cursorStart = start + w.length;
+    cursorEnd = cursorStart + text.length;
+  }
+
+  ta.value = newText;
+  ta.focus();
+  ta.setSelectionRange(cursorStart, cursorEnd);
+}
+
 // Server Embeds
 
 let serverMetadata = {};

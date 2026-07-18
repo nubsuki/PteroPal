@@ -735,6 +735,88 @@ body::before {
   color: var(--text-muted);
 }
 
+/* ── Markdown Editor ── */
+.md-editor {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  transition: border-color var(--transition-fast);
+}
+
+.md-editor:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.md-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 8px;
+  background: rgba(15, 19, 32, 0.6);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-wrap: wrap;
+}
+
+.md-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.md-btn:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+.md-btn:active {
+  background: var(--accent-glow);
+  color: var(--accent-light);
+  border-color: var(--accent);
+}
+
+.md-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--border-subtle);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+.md-hint {
+  margin-left: auto;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+  user-select: none;
+}
+
+.md-textarea {
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  resize: vertical;
+  min-height: 90px;
+  line-height: 1.6;
+  font-family: inherit;
+}
+
+.md-textarea:focus {
+  border: none !important;
+  box-shadow: none !important;
+}
+
 /* ── Modal Actions ── */
 .modal-actions {
   display: flex;

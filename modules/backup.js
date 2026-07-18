@@ -74,9 +74,9 @@ async function processBackups(auth) {
   if (auth) {
     drive = google.drive({ version: "v3", auth });
     try {
-      rootBackupFolderId = await getOrCreateDriveFolder(drive, "Petropal Backups");
+      rootBackupFolderId = await getOrCreateDriveFolder(drive, "Pteropal Backups");
     } catch (err) {
-      console.error("Failed to access or create root 'Petropal Backups' folder in Drive:", err.message);
+      console.error("Failed to access or create root 'Pteropal Backups' folder in Drive:", err.message);
       drive = null; // Disable drive uploads for this run
     }
   }
@@ -97,7 +97,7 @@ async function processBackups(auth) {
     await createZipArchive(folderPath, zipFilePath);
     console.log(`Created ZIP archive: ${zipFilePath}`);
 
-    const maxBackups = parseInt(process.env.MAX_BACKUPS);
+    const maxBackups = parseInt(process.env.MAX_BACKUPS) || 0;
     const maxDriveBackups = process.env.MAX_DRIVE_BACKUPS !== undefined 
       ? parseInt(process.env.MAX_DRIVE_BACKUPS) 
       : maxBackups; // Fallback to MAX_BACKUPS if MAX_DRIVE_BACKUPS is not set
@@ -213,9 +213,9 @@ async function executeManualBackup(auth, channel) {
   if (auth) {
     drive = google.drive({ version: "v3", auth });
     try {
-      rootBackupFolderId = await getOrCreateDriveFolder(drive, "Petropal Backups");
+      rootBackupFolderId = await getOrCreateDriveFolder(drive, "Pteropal Backups");
     } catch (err) {
-      console.error("Failed to access or create root 'Petropal Backups' folder in Drive:", err.message);
+      console.error("Failed to access or create root 'Pteropal Backups' folder in Drive:", err.message);
       drive = null;
     }
   }

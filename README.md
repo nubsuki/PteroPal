@@ -21,7 +21,7 @@ Control your servers directly from Discord, perform automatic scheduled backups,
 - **Automated Scheduled Backups**:
   - Runs daily at a configurable time.
   - **Optional Shutdown**: Can automatically shut down servers before backup to ensure data integrity and free up resources.
-  - **Storage**: Saves backups locally and optionally uploads to a dedicated `Petropal Backups` folder on Google Drive.
+  - **Storage**: Saves backups locally and optionally uploads to a dedicated `Pteropal Backups` folder on Google Drive.
   - **Retention Policy**: Automatically cleans up old backups (local and cloud) based on a configured limit.
 - **Manual Backups**:
   - Trigger a backup instantly via Web Dashboard or Discord command (`.backup`).

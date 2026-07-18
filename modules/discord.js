@@ -45,20 +45,25 @@ function init({ getAllServers, getConfiguredPanels, performManualBackup }) {
 
       const pollInterval = setInterval(async () => {
         retries++;
-        const currentStatus = await panelModule.getServerStatus(serverId);
-        console.log(
-          `Checking status for ${serverName}: ${currentStatus} (Attempt ${retries}/${maxRetries})`,
-        );
+        try {
+          const currentStatus = await panelModule.getServerStatus(serverId);
+          console.log(
+            `Checking status for ${serverName}: ${currentStatus} (Attempt ${retries}/${maxRetries})`,
+          );
 
-        if (currentStatus === "running") {
-          channel.send(
-            `Server "${serverName}" (${panelModule.panelName}) is now ONLINE!`,
-          );
-          clearInterval(pollInterval);
-        } else if (retries >= maxRetries) {
-          channel.send(
-            `Server "${serverName}" (${panelModule.panelName}) took too long to start. Please check the panel.`,
-          );
+          if (currentStatus === "running") {
+            channel.send(
+              `Server "${serverName}" (${panelModule.panelName}) is now ONLINE!`,
+            );
+            clearInterval(pollInterval);
+          } else if (retries >= maxRetries) {
+            channel.send(
+              `Server "${serverName}" (${panelModule.panelName}) took too long to start. Please check the panel.`,
+            );
+            clearInterval(pollInterval);
+          }
+        } catch (err) {
+          console.error(`Error polling status for ${serverName}:`, err.message);
           clearInterval(pollInterval);
         }
       }, 5000);
@@ -95,20 +100,25 @@ function init({ getAllServers, getConfiguredPanels, performManualBackup }) {
 
       const pollInterval = setInterval(async () => {
         retries++;
-        const currentStatus = await panelModule.getServerStatus(serverId);
-        console.log(
-          `Checking status for ${serverName}: ${currentStatus} (Attempt ${retries}/${maxRetries})`,
-        );
+        try {
+          const currentStatus = await panelModule.getServerStatus(serverId);
+          console.log(
+            `Checking status for ${serverName}: ${currentStatus} (Attempt ${retries}/${maxRetries})`,
+          );
 
-        if (currentStatus === "offline") {
-          channel.send(
-            `Server "${serverName}" (${panelModule.panelName}) is now OFFLINE!`,
-          );
-          clearInterval(pollInterval);
-        } else if (retries >= maxRetries) {
-          channel.send(
-            `Server "${serverName}" (${panelModule.panelName}) took too long to stop. Please check the panel.`,
-          );
+          if (currentStatus === "offline") {
+            channel.send(
+              `Server "${serverName}" (${panelModule.panelName}) is now OFFLINE!`,
+            );
+            clearInterval(pollInterval);
+          } else if (retries >= maxRetries) {
+            channel.send(
+              `Server "${serverName}" (${panelModule.panelName}) took too long to stop. Please check the panel.`,
+            );
+            clearInterval(pollInterval);
+          }
+        } catch (err) {
+          console.error(`Error polling status for ${serverName}:`, err.message);
           clearInterval(pollInterval);
         }
       }, 5000);
@@ -164,7 +174,13 @@ function init({ getAllServers, getConfiguredPanels, performManualBackup }) {
 
     if (command === "start" && args[1]) {
       const serverIndex = parseInt(args[1]) - 1;
-      const servers = await getAllServers();
+      let servers;
+      try {
+        servers = await getAllServers();
+      } catch (err) {
+        console.error("Error fetching servers for start command:", err.message);
+        return message.channel.send("An error occurred while fetching servers.");
+      }
 
       if (serverIndex < 0 || serverIndex >= servers.length) {
         return message.channel.send("Invalid server number.");
@@ -176,7 +192,13 @@ function init({ getAllServers, getConfiguredPanels, performManualBackup }) {
 
     if (command === "stop" && args[1]) {
       const serverIndex = parseInt(args[1]) - 1;
-      const servers = await getAllServers();
+      let servers;
+      try {
+        servers = await getAllServers();
+      } catch (err) {
+        console.error("Error fetching servers for stop command:", err.message);
+        return message.channel.send("An error occurred while fetching servers.");
+      }
 
       if (serverIndex < 0 || serverIndex >= servers.length) {
         return message.channel.send("Invalid server number.");

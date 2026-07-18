@@ -285,15 +285,40 @@
 
         <div class="modal-field">
           <label for="serverDescInput">Description</label>
-          <input
-            type="text"
-            id="serverDescInput"
-            class="modal-input"
-            placeholder="e.g., Survival 1.20 | Plugins Enabled"
-            autocomplete="off"
-            spellcheck="false"
-          />
+          <div class="md-editor">
+            <div class="md-toolbar" role="toolbar" aria-label="Formatting options">
+              <button type="button" class="md-btn" onclick="mdFormat('bold')" title="Bold (**text**)">
+                <i class="bi bi-type-bold"></i>
+              </button>
+              <button type="button" class="md-btn" onclick="mdFormat('italic')" title="Italic (*text*)">
+                <i class="bi bi-type-italic"></i>
+              </button>
+              <button type="button" class="md-btn" onclick="mdFormat('underline')" title="Underline (__text__)">
+                <i class="bi bi-type-underline"></i>
+              </button>
+              <button type="button" class="md-btn" onclick="mdFormat('strike')" title="Strikethrough (~~text~~)">
+                <i class="bi bi-type-strikethrough"></i>
+              </button>
+              <div class="md-divider"></div>
+              <button type="button" class="md-btn" onclick="mdFormat('code')" title="Inline code (`text`)">
+                <i class="bi bi-code"></i>
+              </button>
+              <button type="button" class="md-btn" onclick="mdFormat('quote')" title="Block quote (>>> text)">
+                <i class="bi bi-blockquote-left"></i>
+              </button>
+              <div class="md-divider"></div>
+              <span class="md-hint">Markdown supported</span>
+            </div>
+            <textarea
+              id="serverDescInput"
+              class="modal-input md-textarea"
+              placeholder="e.g., **Survival 1.20** | *Plugins Enabled*&#10;>>> Featured server of the month"
+              rows="4"
+              spellcheck="false"
+            ></textarea>
+          </div>
         </div>
+
 
         <div class="modal-field">
           <label for="serverIconInput">Icon URL (optional)</label>

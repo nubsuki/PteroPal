@@ -10,7 +10,7 @@ const BACKUP_DIR =
   process.env.LOCAL_BACKUP_DIR || path.join(__dirname, "..", "local_backups");
 const MANUAL_BACKUP_DIR = path.join(__dirname, "..", "manual_backups");
 
-// Ensure backup directories exist
+// Ensure backup root directories exist
 fs.ensureDirSync(BACKUP_DIR);
 fs.ensureDirSync(MANUAL_BACKUP_DIR);
 
@@ -48,7 +48,7 @@ async function getOrCreateDriveFolder(drive, folderName, parentId = null) {
   } else {
     q += ` and 'root' in parents`;
   }
-  
+
   const res = await drive.files.list({ q, fields: "files(id, name)" });
   if (res.data.files.length > 0) {
     return res.data.files[0].id;
@@ -70,13 +70,17 @@ async function processBackups(auth) {
   const folderPaths = folderConfig.getFolderPaths();
   let drive = null;
   let rootBackupFolderId = null;
+  let driveLocalFolderId = null;
 
   if (auth) {
     drive = google.drive({ version: "v3", auth });
     try {
+      // Pteropal Backups/
       rootBackupFolderId = await getOrCreateDriveFolder(drive, "Pteropal Backups");
+      // Pteropal Backups/local_backups/
+      driveLocalFolderId = await getOrCreateDriveFolder(drive, "local_backups", rootBackupFolderId);
     } catch (err) {
-      console.error("Failed to access or create root 'Pteropal Backups' folder in Drive:", err.message);
+      console.error("Failed to access or create Drive folder structure:", err.message);
       drive = null; // Disable drive uploads for this run
     }
   }
@@ -84,8 +88,13 @@ async function processBackups(auth) {
   for (const [index, mainFolderName] of folderNames.entries()) {
     const folderPath = folderPaths[index];
     const dateTime = new Date().toISOString().replace(/[:.]/g, "-");
+
+    // Local: local_backups/<FolderName>/
+    const localSubDir = path.join(BACKUP_DIR, mainFolderName);
+    fs.ensureDirSync(localSubDir);
+
     const zipFilePath = path.join(
-      BACKUP_DIR,
+      localSubDir,
       `${mainFolderName}_backup_${dateTime}.zip`,
     );
 
@@ -95,25 +104,27 @@ async function processBackups(auth) {
 
     // Create a ZIP archive of the folder
     await createZipArchive(folderPath, zipFilePath);
-    console.log(`Created ZIP archive: ${zipFilePath}`);
 
     const maxBackups = parseInt(process.env.MAX_BACKUPS) || 0;
-    const maxDriveBackups = process.env.MAX_DRIVE_BACKUPS !== undefined 
-      ? parseInt(process.env.MAX_DRIVE_BACKUPS) 
-      : maxBackups; // Fallback to MAX_BACKUPS if MAX_DRIVE_BACKUPS is not set
+    const maxDriveBackupsEnv = process.env.MAX_DRIVE_BACKUPS;
+    const maxDriveBackups =
+      maxDriveBackupsEnv !== undefined && maxDriveBackupsEnv !== ""
+        ? parseInt(maxDriveBackupsEnv)
+        : maxBackups;
 
     // Handle Google Drive Backup if auth is provided
-    if (drive && rootBackupFolderId) {
+    // Structure: Pteropal Backups/local_backups/<FolderName>/
+    if (drive && driveLocalFolderId) {
       try {
-        const mainFolderId = await getOrCreateDriveFolder(drive, mainFolderName, rootBackupFolderId);
+        const serverFolderId = await getOrCreateDriveFolder(drive, mainFolderName, driveLocalFolderId);
 
         // Upload the ZIP file to Google Drive
-        await googleDrive.uploadZipFile(auth, mainFolderId, zipFilePath);
+        await googleDrive.uploadZipFile(auth, serverFolderId, zipFilePath);
         console.log(`Backup uploaded to Drive for ${mainFolderName}.`);
 
         // Cleanup old Drive backups
         if (!isNaN(maxDriveBackups) && maxDriveBackups > 0) {
-          await googleDrive.cleanupOldBackups(auth, mainFolderId, maxDriveBackups);
+          await googleDrive.cleanupOldBackups(auth, serverFolderId, maxDriveBackups);
         }
       } catch (err) {
         console.error(`Error during Drive backup for ${mainFolderName}:`, err);
@@ -124,23 +135,23 @@ async function processBackups(auth) {
       `Backup process completed for ${mainFolderName}. File saved at: ${zipFilePath}`,
     );
 
-    // Cleanup local backups
+    // Cleanup local backups inside the per-folder subdir
     if (!isNaN(maxBackups) && maxBackups > 0) {
-      await cleanupLocalBackups(BACKUP_DIR, mainFolderName, maxBackups);
+      await cleanupLocalBackups(localSubDir, mainFolderName, maxBackups);
     } else {
       console.log("MAX_BACKUPS is 0 or undefined. Keeping all backups.");
     }
   }
 }
 
-// Clean up old local backups for a specific folder prefix
+// Clean up old local backups for a specific folder prefix inside a given directory
 async function cleanupLocalBackups(backupDir, folderName, maxBackups) {
   try {
     const files = await fs.readdir(backupDir);
     const backupFiles = [];
 
     for (const file of files) {
-      if (file.startsWith(`${folderName}_backup_`) && file.endsWith(".zip")) {
+      if (file.startsWith(`${folderName}_`) && file.endsWith(".zip")) {
         const filePath = path.join(backupDir, file);
         const stats = await fs.stat(filePath);
         backupFiles.push({ name: file, path: filePath, ctime: stats.ctime });
@@ -209,13 +220,17 @@ async function executeManualBackup(auth, channel) {
   const folderPaths = folderConfig.getFolderPaths();
   let drive = null;
   let rootBackupFolderId = null;
+  let driveManualFolderId = null;
 
   if (auth) {
     drive = google.drive({ version: "v3", auth });
     try {
+      // Pteropal Backups/
       rootBackupFolderId = await getOrCreateDriveFolder(drive, "Pteropal Backups");
+      // Pteropal Backups/manual_backups/
+      driveManualFolderId = await getOrCreateDriveFolder(drive, "manual_backups", rootBackupFolderId);
     } catch (err) {
-      console.error("Failed to access or create root 'Pteropal Backups' folder in Drive:", err.message);
+      console.error("Failed to access or create Drive folder structure:", err.message);
       drive = null;
     }
   }
@@ -223,8 +238,13 @@ async function executeManualBackup(auth, channel) {
   for (const [index, mainFolderName] of folderNames.entries()) {
     const folderPath = folderPaths[index];
     const dateTime = new Date().toISOString().replace(/[:.]/g, "-");
+
+    // Local: manual_backups/<FolderName>/
+    const manualSubDir = path.join(MANUAL_BACKUP_DIR, mainFolderName);
+    fs.ensureDirSync(manualSubDir);
+
     const zipFilePath = path.join(
-      MANUAL_BACKUP_DIR,
+      manualSubDir,
       `${mainFolderName}_manual_backup_${dateTime}.zip`,
     );
 
@@ -236,17 +256,16 @@ async function executeManualBackup(auth, channel) {
     try {
       // Create a ZIP archive of the folder
       await createZipArchive(folderPath, zipFilePath);
-      console.log(`Created manual ZIP archive: ${zipFilePath}`);
       channel.send(`Successfully saved local backup for ${mainFolderName}.`);
 
       // Handle Google Drive Backup if auth is provided
-      if (drive && rootBackupFolderId) {
+      // Structure: Pteropal Backups/manual_backups/<FolderName>/
+      if (drive && driveManualFolderId) {
         try {
-          const manualFolderName = `${mainFolderName} - Manual Backups`;
-          const mainFolderId = await getOrCreateDriveFolder(drive, manualFolderName, rootBackupFolderId);
+          const serverFolderId = await getOrCreateDriveFolder(drive, mainFolderName, driveManualFolderId);
 
           // Upload the ZIP file to Google Drive
-          await googleDrive.uploadZipFile(auth, mainFolderId, zipFilePath);
+          await googleDrive.uploadZipFile(auth, serverFolderId, zipFilePath);
           console.log(`Manual backup uploaded to Drive for ${mainFolderName}.`);
           channel.send(
             `Successfully uploaded manual backup to Drive for ${mainFolderName}.`,

@@ -9,8 +9,9 @@ const discord = require("./discord");
 // Check if current time is scheduled backup time
 function isTimeBackup() {
   const now = new Date();
+  const tz = process.env.TZ || Intl.DateTimeFormat().resolvedOptions().timeZone;
   const options = {
-    timeZone: process.env.TZ,
+    timeZone: tz,
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
@@ -99,12 +100,32 @@ async function initiateBackupSequence(getAllServers, notifyFn = null) {
 
 // Start interval checks for server status and backup schedule
 function init({ getAllServers, notifyFn }) {
+  let isBackupRunning = false;   // Prevents overlapping backup runs
+  let lastBackupMinute = null;   // Prevents same minute from triggering twice
+
   async function checkTimeAndPerformActions() {
-    if (isTimeBackup()) {
-      console.log("Time for scheduled backup.");
-      await initiateBackupSequence(getAllServers, notifyFn);
-    } else {
+    if (!isTimeBackup()) {
       console.log("Not the time for backup.");
+      return;
+    }
+
+    const currentMinute = new Date().toISOString().slice(0, 16); // "YYYY-MM-DDTHH:MM"
+    if (lastBackupMinute === currentMinute) {
+      console.log("Scheduled backup already triggered this minute. Skipping.");
+      return;
+    }
+    if (isBackupRunning) {
+      console.log("Backup already in progress. Skipping duplicate trigger.");
+      return;
+    }
+
+    lastBackupMinute = currentMinute;
+    isBackupRunning = true;
+    console.log("Time for scheduled backup.");
+    try {
+      await initiateBackupSequence(getAllServers, notifyFn);
+    } finally {
+      isBackupRunning = false;
     }
   }
 

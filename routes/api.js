@@ -191,7 +191,7 @@ function init({ getConfiguredPanels, getAllServers }) {
   });
 
   // Test Drive Backup manually from UI
-  router.post("/drive/test", (req, res) => {
+  router.post("/drive/test", async (req, res) => {
     const status = googleDrive.getConnectionStatus();
     if (!status.enabled) {
       return res
@@ -204,11 +204,13 @@ function init({ getConfiguredPanels, getAllServers }) {
       send: (msg) => console.log(`[UI Test Backup] ${msg}`),
     };
 
-    backup.performManualBackup(dummyChannel).catch((err) => {
+    try {
+      await backup.performManualBackup(dummyChannel);
+      res.json({ success: true, message: "Manual backup completed." });
+    } catch (err) {
       console.error("[UI Test Backup] Failed:", err);
-    });
-
-    res.json({ success: true, message: "Manual backup triggered." });
+      res.status(500).json({ success: false, error: "Backup failed. Check console for details." });
+    }
   });
 
   // Get server metadata

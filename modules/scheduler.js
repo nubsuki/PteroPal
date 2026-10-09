@@ -35,6 +35,21 @@ async function shutdownServer(server) {
   }
 }
 
+// Start server
+async function startupServer(server) {
+  try {
+    await server.panelModule.sendPowerAction(server.id, "start");
+    console.log(
+      `Server ${server.name} (${server.panel}) has been started.`
+    );
+  } catch (error) {
+    console.error(
+      `Error starting server ${server.name} (${server.panel}):`,
+      error.message
+    );
+  }
+}
+
 // Orchestrate server shutdown, offline waiting, and backup execution
 async function initiateBackupSequence(getAllServers, notifyFn = null) {
   console.log("Starting backup process...");
@@ -96,6 +111,17 @@ async function initiateBackupSequence(getAllServers, notifyFn = null) {
   }
 
   await backup.performBackup(auth);
+
+  if (shouldShutdown) {
+    const shouldStartup = process.env.START_AFTER_BACKUP === "true";
+    if (shouldStartup) {
+      console.log("Starting servers back up after backup...");
+      const servers = await getAllServers();
+      for (const server of servers) {
+        await startupServer(server);
+      }
+    }
+  }
 }
 
 // Start interval checks for server status and backup schedule

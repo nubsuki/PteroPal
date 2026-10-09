@@ -22,6 +22,7 @@ services:
       - MAX_BACKUPS=5 # 0 = Keep all backups. > 0 = Keep latest N local backups.
       - MAX_DRIVE_BACKUPS=3 # 0 = Keep all backups. > 0 = Keep latest N Google Drive backups.
       - SHUTDOWN_BEFORE_BACKUP=true # Set to false to disable server shutdown before backup
+      - START_AFTER_BACKUP=false # Set to true to start servers back up after backup completes
       
       #         GOOGLE DRIVE INTEGRATION
       - ENABLE_DRIVE_BACKUP=true # true = Backup to Google Drive and local. false = Local backup only.

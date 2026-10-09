@@ -79,6 +79,7 @@ If `ENABLE_DRIVE_BACKUP` is set to `true`:
 | `FOLDER_PATHS`           | Comma-separated paths to folders **inside the container** (Can also be managed via Web Dashboard). | Required    |
 | `ENABLE_DRIVE_BACKUP`    | Set to `true` to upload to Google Drive.                                                           | `false`     |
 | `SHUTDOWN_BEFORE_BACKUP` | `true` to stop servers before backing up (safer).                                                  | `true`      |
+| `START_AFTER_BACKUP`     | `true` to start servers back up after the backup finishes.                                         | `false`     |
 | `BACKUP_TIME`            | Time to run auto-backup (24h format, e.g., `14:30`).                                               | Required    |
 | `TZ`                     | Timezone for the backup schedule (e.g., `Asia/Colombo`).                                           | System Time |
 | `MAX_BACKUPS`            | Number of local auto-backups to keep (0 = infinite).                                               | `0`         |

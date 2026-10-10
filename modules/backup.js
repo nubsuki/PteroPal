@@ -60,7 +60,10 @@ async function getOrCreateDriveFolder(drive, folderName, parentId = null) {
   };
   if (parentId) metadata.parents = [parentId];
 
-  const created = await drive.files.create({ resource: metadata, fields: "id" });
+  const created = await drive.files.create({
+    resource: metadata,
+    fields: "id",
+  });
   return created.data.id;
 }
 
@@ -76,11 +79,21 @@ async function processBackups(auth) {
     drive = google.drive({ version: "v3", auth });
     try {
       // Pteropal Backups/
-      rootBackupFolderId = await getOrCreateDriveFolder(drive, "Pteropal Backups");
+      rootBackupFolderId = await getOrCreateDriveFolder(
+        drive,
+        "Pteropal Backups",
+      );
       // Pteropal Backups/local_backups/
-      driveLocalFolderId = await getOrCreateDriveFolder(drive, "local_backups", rootBackupFolderId);
+      driveLocalFolderId = await getOrCreateDriveFolder(
+        drive,
+        "local_backups",
+        rootBackupFolderId,
+      );
     } catch (err) {
-      console.error("Failed to access or create Drive folder structure:", err.message);
+      console.error(
+        "Failed to access or create Drive folder structure:",
+        err.message,
+      );
       drive = null; // Disable drive uploads for this run
     }
   }
@@ -116,7 +129,11 @@ async function processBackups(auth) {
     // Structure: Pteropal Backups/local_backups/<FolderName>/
     if (drive && driveLocalFolderId) {
       try {
-        const serverFolderId = await getOrCreateDriveFolder(drive, mainFolderName, driveLocalFolderId);
+        const serverFolderId = await getOrCreateDriveFolder(
+          drive,
+          mainFolderName,
+          driveLocalFolderId,
+        );
 
         // Upload the ZIP file to Google Drive
         await googleDrive.uploadZipFile(auth, serverFolderId, zipFilePath);
@@ -124,7 +141,11 @@ async function processBackups(auth) {
 
         // Cleanup old Drive backups
         if (!isNaN(maxDriveBackups) && maxDriveBackups > 0) {
-          await googleDrive.cleanupOldBackups(auth, serverFolderId, maxDriveBackups);
+          await googleDrive.cleanupOldBackups(
+            auth,
+            serverFolderId,
+            maxDriveBackups,
+          );
         }
       } catch (err) {
         console.error(`Error during Drive backup for ${mainFolderName}:`, err);
@@ -178,10 +199,13 @@ async function cleanupLocalBackups(backupDir, folderName, maxBackups) {
 // Check if folder exists and is accessible
 async function checkDirectoryAccessible(dirPath) {
   try {
+    if (typeof dirPath !== "string" || !path.isAbsolute(dirPath)) {
+      return false;
+    }
     await fs.access(dirPath);
     return true;
   } catch (error) {
-    console.error(`Error accessing ${dirPath}:`, error.message);
+    console.error("Error accessing directory:", dirPath, error.message);
     return false;
   }
 }
@@ -205,7 +229,7 @@ async function performManualBackup(channel) {
     } catch (err) {
       console.error("Drive auth failed:", err.message);
       channel.send(
-        `⚠️ Google Drive not connected — performing local backup only. Connect Drive from the dashboard: http://localhost:3000`
+        `⚠️ Google Drive not connected — performing local backup only. Connect Drive from the dashboard: http://localhost:3000`,
       );
     }
   }
@@ -226,11 +250,21 @@ async function executeManualBackup(auth, channel) {
     drive = google.drive({ version: "v3", auth });
     try {
       // Pteropal Backups/
-      rootBackupFolderId = await getOrCreateDriveFolder(drive, "Pteropal Backups");
+      rootBackupFolderId = await getOrCreateDriveFolder(
+        drive,
+        "Pteropal Backups",
+      );
       // Pteropal Backups/manual_backups/
-      driveManualFolderId = await getOrCreateDriveFolder(drive, "manual_backups", rootBackupFolderId);
+      driveManualFolderId = await getOrCreateDriveFolder(
+        drive,
+        "manual_backups",
+        rootBackupFolderId,
+      );
     } catch (err) {
-      console.error("Failed to access or create Drive folder structure:", err.message);
+      console.error(
+        "Failed to access or create Drive folder structure:",
+        err.message,
+      );
       drive = null;
     }
   }
@@ -262,7 +296,11 @@ async function executeManualBackup(auth, channel) {
       // Structure: Pteropal Backups/manual_backups/<FolderName>/
       if (drive && driveManualFolderId) {
         try {
-          const serverFolderId = await getOrCreateDriveFolder(drive, mainFolderName, driveManualFolderId);
+          const serverFolderId = await getOrCreateDriveFolder(
+            drive,
+            mainFolderName,
+            driveManualFolderId,
+          );
 
           // Upload the ZIP file to Google Drive
           await googleDrive.uploadZipFile(auth, serverFolderId, zipFilePath);

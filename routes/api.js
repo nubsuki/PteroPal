@@ -5,8 +5,14 @@ const folderConfig = require("../modules/folderConfig");
 const backup = require("../modules/backup");
 const googleDrive = require("../modules/googleDrive");
 const statusUpdater = require("../modules/statusUpdater");
+const rateLimit = require("express-rate-limit");
 
 const router = express.Router();
+
+const browseLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+});
 
 // Initialize API routes
 function init({ getConfiguredPanels, getAllServers }) {
@@ -30,7 +36,16 @@ function init({ getConfiguredPanels, getAllServers }) {
       return res.status(400).json({ error: "Name and path cannot be empty" });
     }
 
-    const folders = folderConfig.addFolder(trimmedName, trimmedPath);
+    // Resolve to absolute path and reject any traversal attempts
+    if (trimmedPath.includes("\0") || trimmedPath.includes("..")) {
+      return res.status(400).json({ error: "Invalid path" });
+    }
+    const resolvedPath = path.resolve(trimmedPath);
+    if (!path.isAbsolute(resolvedPath)) {
+      return res.status(400).json({ error: "Path must be absolute" });
+    }
+
+    const folders = folderConfig.addFolder(trimmedName, resolvedPath);
     res.json({ success: true, folders });
   });
 
@@ -51,8 +66,12 @@ function init({ getConfiguredPanels, getAllServers }) {
   });
 
   // Browse filesystem directories
-  router.get("/browse", async (req, res) => {
-    const targetPath = req.query.path || "/";
+  router.get("/browse", browseLimiter, async (req, res) => {
+    const requestedPath = req.query.path ? String(req.query.path) : "/";
+    if (requestedPath.includes("\0") || requestedPath.includes("..")) {
+      return res.status(400).json({ error: "Invalid path" });
+    }
+    const targetPath = path.resolve(requestedPath);
 
     try {
       const items = await fs.readdir(targetPath, { withFileTypes: true });

@@ -1,6 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const path = require("path");
+const rateLimit = require("express-rate-limit");
 
 const folderConfig = require("./modules/folderConfig");
 const googleDrive = require("./modules/googleDrive");
@@ -58,8 +59,13 @@ async function getAllServers() {
   return allServers;
 }
 
+const rootLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+});
+
 // Serve main page
-app.get("/", (req, res) => {
+app.get("/", rootLimiter, (req, res) => {
   if (req.query.code) {
     return res.redirect(`/auth?code=${encodeURIComponent(req.query.code)}`);
   }

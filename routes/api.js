@@ -36,7 +36,16 @@ function init({ getConfiguredPanels, getAllServers }) {
       return res.status(400).json({ error: "Name and path cannot be empty" });
     }
 
-    const folders = folderConfig.addFolder(trimmedName, trimmedPath);
+    // Resolve to absolute path and reject any traversal attempts
+    if (trimmedPath.includes("\0") || trimmedPath.includes("..")) {
+      return res.status(400).json({ error: "Invalid path" });
+    }
+    const resolvedPath = path.resolve(trimmedPath);
+    if (!path.isAbsolute(resolvedPath)) {
+      return res.status(400).json({ error: "Path must be absolute" });
+    }
+
+    const folders = folderConfig.addFolder(trimmedName, resolvedPath);
     res.json({ success: true, folders });
   });
 

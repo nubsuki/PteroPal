@@ -3,10 +3,11 @@ const https = require("https");
 
 const CRAFTY_API_URL = process.env.CRAFTY_API_URL;
 const CRAFTY_API_KEY = process.env.CRAFTY_API_KEY;
+const ALLOW_INSECURE_CERTS = process.env.ALLOW_INSECURE_CERTS === "true";
 
 // Create an Axios instance that accepts self-signed certificates
 const craftyAxios = axios.create({
-  httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+  httpsAgent: new https.Agent({ rejectUnauthorized: !ALLOW_INSECURE_CERTS }),
 });
 
 // Check if Crafty Controller is configured
@@ -27,7 +28,7 @@ async function getServerStatus(serverId) {
   try {
     const response = await craftyAxios.get(
       `${CRAFTY_API_URL}/api/v2/servers/${serverId}/stats`,
-      { headers: getHeaders() }
+      { headers: getHeaders() },
     );
 
     const stats = response.data.data;
@@ -39,7 +40,7 @@ async function getServerStatus(serverId) {
   } catch (error) {
     console.error(
       `[Crafty] Error fetching server status for ${serverId}:`,
-      error.message
+      error.message,
     );
     return "unknown";
   }
@@ -48,10 +49,9 @@ async function getServerStatus(serverId) {
 // Fetches all servers from the Crafty Controller API
 async function getServers() {
   try {
-    const response = await craftyAxios.get(
-      `${CRAFTY_API_URL}/api/v2/servers`,
-      { headers: getHeaders() }
-    );
+    const response = await craftyAxios.get(`${CRAFTY_API_URL}/api/v2/servers`, {
+      headers: getHeaders(),
+    });
 
     // Crafty API may nest servers differently depending on version
     const serverData = response.data.data || response.data || [];
@@ -66,7 +66,7 @@ async function getServers() {
           name: serverName,
           status,
         };
-      })
+      }),
     );
 
     console.log("[Crafty] Servers fetched:", servers);
@@ -94,15 +94,13 @@ async function sendPowerAction(serverId, signal) {
     await craftyAxios.post(
       `${CRAFTY_API_URL}/api/v2/servers/${serverId}/action/${action}`,
       {},
-      { headers: getHeaders() }
+      { headers: getHeaders() },
     );
-    console.log(
-      `[Crafty] Power action "${signal}" sent to server ${serverId}`
-    );
+    console.log(`[Crafty] Power action "${signal}" sent to server ${serverId}`);
   } catch (error) {
     console.error(
       `[Crafty] Error sending power action "${signal}" to ${serverId}:`,
-      error.message
+      error.message,
     );
     throw error;
   }

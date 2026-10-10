@@ -75,6 +75,7 @@ If `ENABLE_DRIVE_BACKUP` is set to `true`:
 | `PTERODACTYL_API_KEY`    | Client API Key from Account Settings.                                                              | Optional    |
 | `CRAFTY_API_URL`         | URL to your Crafty Controller.                                                                     | Optional    |
 | `CRAFTY_API_KEY`         | API Token from Crafty User Settings.                                                               | Optional    |
+| `ALLOW_INSECURE_CERTS`   | Set to `true` if Crafty uses a self-signed certificate (e.g. local IP or Docker deployment).       | `false`     |
 | `FOLDER_NAMES`           | Comma-separated names for backups (Can also be managed via Web Dashboard).                         | Required    |
 | `FOLDER_PATHS`           | Comma-separated paths to folders **inside the container** (Can also be managed via Web Dashboard). | Required    |
 | `ENABLE_DRIVE_BACKUP`    | Set to `true` to upload to Google Drive.                                                           | `false`     |

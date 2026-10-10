@@ -53,7 +53,7 @@ function renderFolders(folders) {
         <div class="folder-item-path" title="${escapeHtml(folder.path)}">${escapeHtml(folder.path)}</div>
       </div>
       <div class="folder-item-delete">
-        <button class="btn btn-danger" onclick="deleteFolder(${index})" title="Remove folder">
+        <button class="btn btn-danger" data-delete-index="${index}" title="Remove folder">
           ${icons.delete}
         </button>
       </div>
@@ -230,7 +230,7 @@ function renderDirectories(directories, parentPath) {
   listEl.innerHTML = directories
     .map(
       (dir) => `
-    <div class="directory-item" onclick="browseTo('${escapeAttr(dir.path)}')">
+    <div class="directory-item" data-browse-path="${escapeHtml(dir.path)}">
       <span class="directory-item-icon">${icons.dirItem}</span>
       <span class="directory-item-name">${escapeHtml(dir.name)}</span>
     </div>
@@ -372,9 +372,19 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-function escapeAttr(str) {
-  return str.replace(/'/g, "\\'").replace(/"/g, "&quot;");
-}
+// Event delegation for folder delete buttons
+document.addEventListener("click", (e) => {
+  const deleteBtn = e.target.closest("[data-delete-index]");
+  if (deleteBtn) {
+    const index = parseInt(deleteBtn.dataset.deleteIndex, 10);
+    if (!isNaN(index)) deleteFolder(index);
+  }
+
+  const dirItem = e.target.closest("[data-browse-path]");
+  if (dirItem) {
+    browseTo(dirItem.dataset.browsePath);
+  }
+});
 
 // Google Drive
 
@@ -682,7 +692,7 @@ async function loadServers() {
               <span class="folder-item-name">${escapeHtml(s.name)} <span style="color:var(--text-muted); font-weight:400;">${customName}</span></span>
               <span class="folder-item-path"><span style="color:var(--accent);">${escapeHtml(s.panel)}</span> &nbsp;&bull;&nbsp; ID: ${escapeHtml(s.id)}</span>
             </div>
-            <button class="btn btn-ghost btn-sm folder-item-delete" onclick="openServerModal('${escapeAttr(s.id)}', '${escapeAttr(s.name)}')">
+            <button class="btn btn-ghost btn-sm folder-item-delete" data-server-id="${escapeHtml(s.id)}" data-server-name="${escapeHtml(s.name)}">
               <i class="bi bi-gear"></i> Configure Embed
             </button>
           </div>
@@ -698,6 +708,14 @@ async function loadServers() {
     btn.innerHTML = `<i class="bi bi-arrow-clockwise"></i> Refresh`;
   }
 }
+
+// Event delegation for server configure buttons
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-server-id]");
+  if (btn) {
+    openServerModal(btn.dataset.serverId, btn.dataset.serverName);
+  }
+});
 
 function openServerModal(serverId, defaultName) {
   const modal = document.getElementById("serverModal");

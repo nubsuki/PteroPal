@@ -178,10 +178,14 @@ async function cleanupLocalBackups(backupDir, folderName, maxBackups) {
 // Check if folder exists and is accessible
 async function checkDirectoryAccessible(dirPath) {
   try {
-    await fs.access(dirPath);
+    if (typeof dirPath !== "string" || dirPath.includes("\0") || dirPath.includes("..")) {
+      return false;
+    }
+    const resolvedPath = path.resolve(dirPath);
+    await fs.access(resolvedPath);
     return true;
   } catch (error) {
-    console.error(`Error accessing ${dirPath}:`, error.message);
+    console.error("Error accessing directory:", dirPath, error.message);
     return false;
   }
 }

@@ -15,6 +15,7 @@ services:
       - PTERODACTYL_API_KEY= # Pterodactyl API key
       - CRAFTY_API_URL= # CRAFTY APP URL
       - CRAFTY_API_KEY= # CRAFTY API KEY
+      - ALLOW_INSECURE_CERTS=false # Set to true if Crafty uses a self-signed certificate (e.g. local IP or Docker)
       
       #           BACKUP CONFIGURATION
       - TZ=Asia/Colombo # Your timezone
